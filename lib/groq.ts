@@ -20,497 +20,1072 @@ export async function generateTeachingModule(
 
     // Extract data from prompt for replacement
     const extractData = (text: string) => {
-      const getValue = (key: string): string => {
-        // Try to find value in different formats
-        const patterns = [
-          new RegExp(`- ${key}: ([^\\n]+)`, "i"),
-          new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, "i"),
-          new RegExp(`${key}: ([^\\n]+)`, "i"),
-        ];
+      // Extract judul
+      const judulMatch = text.match(/Materi Pokok:\s*([^\n]+)/i);
+      const judul = judulMatch ? judulMatch[1].trim() : "Judul Modul";
 
-        for (const pattern of patterns) {
-          const match = text.match(pattern);
-          if (match) return match[1].trim();
+      // Extract fase
+      const faseMatch = text.match(/Fase:\s*([^\n]+)/i);
+      let fase = faseMatch ? faseMatch[1].trim() : "Fase D";
+
+      // Extract kelas
+      const kelasMatch = text.match(/Kelas:\s*([^\n]+)/i);
+      const kelas = kelasMatch ? kelasMatch[1].trim() : "Kelas";
+
+      // Extract materi
+      const materiMatch = text.match(/Materi Pokok:\s*([^\n]+)/i);
+      const materi = materiMatch ? materiMatch[1].trim() : "Materi Pokok";
+
+      // Extract mapel
+      const mapelMatch = text.match(/Mata Pelajaran:\s*([^\n]+)/i);
+      const mapel = mapelMatch ? mapelMatch[1].trim() : "Mata Pelajaran";
+
+      // Extract jenjang
+      const jenjangMatch = text.match(/Jenjang:\s*([^\n]+)/i);
+      const jenjang = jenjangMatch ? jenjangMatch[1].trim() : "SMP";
+
+      // Extract jumlah pertemuan
+      const pertemuanMatch = text.match(/Jumlah Pertemuan:\s*([^\n]+)/i);
+      const jumlahPertemuan = pertemuanMatch ? pertemuanMatch[1].trim() : "2";
+
+      // Extract alokasi waktu
+      const alokasiWaktuMatch = text.match(/Alokasi Waktu:\s*([^\n]+)/i);
+      const alokasiWaktu = alokasiWaktuMatch
+        ? alokasiWaktuMatch[1].trim()
+        : "2 pertemuan (total 180 menit)";
+
+      // Extract model pembelajaran
+      const modelMatch = text.match(/Model Pembelajaran:\s*([^\n]+)/i);
+      const model = modelMatch
+        ? modelMatch[1].trim()
+        : "Problem Based Learning";
+
+      // Extract nama guru
+      const namaGuruMatch = text.match(/Nama Penyusun:\s*([^\n]+)/i);
+      const namaGuru = namaGuruMatch ? namaGuruMatch[1].trim() : "Guru";
+
+      // Extract institusi
+      const institusiMatch = text.match(/Institusi:\s*([^\n]+)/i);
+      const institusi = institusiMatch
+        ? institusiMatch[1].trim()
+        : "Satuan Pendidikan";
+
+      // Extract tahun ajaran
+      const tahunAjaranMatch = text.match(/Tahun Ajaran:\s*([^\n]+)/i);
+      const tahunAjaran = tahunAjaranMatch
+        ? tahunAjaranMatch[1].trim()
+        : "2025/2026";
+
+      // Extract semester
+      const semesterMatch = text.match(/Semester:\s*([^\n]+)/i);
+      const semester = semesterMatch ? semesterMatch[1].trim() : "Ganjil";
+
+      // Extract Profil Pelajar Pancasila
+      const sklMatch = text.match(
+        /DIMENSI PROFIL LULUSAN:\s*\n([\s\S]*?)(?=\n\n|\n#|$)/i,
+      );
+      let skl: string[] = [];
+      if (sklMatch) {
+        const sklText = sklMatch[1];
+        // Extract only the actual SKL items, not the instructions
+        const sklItems = sklText.match(/^\d+\.\s*[^\n]+$/gm);
+        if (sklItems) {
+          skl = sklItems.map((item) => item.replace(/^\d+\.\s*/, "").trim());
         }
-        return "";
-      };
-
-      // Khusus untuk fase, kita perlu membersihkan dari teks tambahan
-      let faseValue = getValue("Fase") || "";
-      faseValue = faseValue
-        .replace(/\s*\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)\s*/g, "")
-        .trim();
+      }
 
       return {
-        judul: getValue("JUDUL MODUL") || getValue("judul") || "",
-        fase: faseValue,
-        kelas: getValue("Kelas") || "",
-        materi: getValue("Materi Pokok") || getValue("materi") || "",
-        mapel: getValue("Mata Pelajaran") || getValue("mapel") || "",
+        judul,
+        fase,
+        kelas,
+        materi,
+        mapel,
+        jenjang,
+        jumlahPertemuan,
+        alokasiWaktu,
+        model,
+        namaGuru,
+        institusi,
+        tahunAjaran,
+        semester,
+        skl,
       };
     };
 
     const data = extractData(prompt);
     console.log("📊 Extracted data:", data);
 
-    // Fungsi untuk mengganti semua placeholder secara konsisten
-    const replacePlaceholders = (text: string): string => {
-      // Ganti judul modul dengan berbagai pola - urutan dari yang paling spesifik ke umum
-      let result = text
-        // Pola 1: [JUDUL MODUL] standalone
-        .replace(/\[JUDUL MODUL\]/g, data.judul)
-
-        // Pola 2: JUDUL MODUL: [JUDUL MODUL]
-        .replace(
-          /JUDUL MODUL:\s*\[JUDUL MODUL\]/g,
-          `JUDUL MODUL: ${data.judul}`,
-        )
-
-        // Pola 3: # [JUDUL MODUL]
-        .replace(/^#\s*\[JUDUL MODUL\]/gm, `# ${data.judul}`)
-
-        // Pola 4: ## [JUDUL MODUL]
-        .replace(/^##\s*\[JUDUL MODUL\]/gm, `## ${data.judul}`)
-
-        // Pola 5: # MODUL AJAR... diikuti # [JUDUL MODUL]
-        .replace(
-          /#\s*MODUL AJAR[^\n]*\n#\s*\[JUDUL MODUL\]/gs,
-          `# ${data.judul}`,
-        )
-
-        // Pola 6: Judul: [JUDUL MODUL]
-        .replace(/Judul:\s*\[JUDUL MODUL\]/g, `Judul: ${data.judul}`)
-
-        // Pola 7: Judul Modul: [JUDUL MODUL]
-        .replace(
-          /Judul Modul:\s*\[JUDUL MODUL\]/g,
-          `Judul Modul: ${data.judul}`,
-        )
-
-        // Pola 8: Dalam konteks tabel - | [JUDUL MODUL] |
-        .replace(/\|\s*\[JUDUL MODUL\]\s*\|/g, `| ${data.judul} |`)
-
-        // Pola 9: [JUDUL MODUL] di tengah kalimat
-        .replace(/(\s)\[JUDUL MODUL\](\s)/g, `$1${data.judul}$2`)
-
-        // Ganti fase dengan berbagai pola
-        .replace(/\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)/g, data.fase)
-        .replace(/GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS/g, data.fase)
-        .replace(
-          /Fase.*\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)/g,
-          `Fase ${data.fase}`,
-        )
-        .replace(/\[fase\]/g, data.fase)
-        .replace(/Fase \[fase\]/g, `Fase ${data.fase}`)
-
-        // Ganti placeholder lainnya
-        .replace(/\[materi\]/g, data.materi)
-        .replace(/\[mapel\]/g, data.mapel)
-        .replace(/\[kelas\]/g, data.kelas)
-        .replace(/\[semester\]/g, getValue(prompt, "Semester") || "Ganjil")
-        .replace(
-          /\[tahunPelajaran\]/g,
-          getValue(prompt, "Tahun Pelajaran") || "2025/2026",
-        )
-        .replace(/\[namaGuru\]/g, getValue(prompt, "Nama Penyusun") || "Guru")
-        .replace(
-          /\[institusi\]/g,
-          getValue(prompt, "Satuan Pendidikan") || "Satuan Pendidikan",
-        )
-        .replace(
-          /\[durasi\]/g,
-          getValue(prompt, "Alokasi Waktu") || "2 JP (90 menit)",
-        )
-        .replace(
-          /\[model\]/g,
-          getValue(prompt, "Model Pembelajaran") || "Problem Based Learning",
-        );
-
-      // Lakukan pemeriksaan ulang untuk memastikan tidak ada [JUDUL MODUL] yang tersisa
-      if (result.includes("[JUDUL MODUL]")) {
-        console.warn(
-          "⚠️ Masih ada [JUDUL MODUL] yang tersisa, lakukan penggantian paksa",
-        );
-        result = result.replace(/\[JUDUL MODUL\]/g, data.judul);
-      }
-
-      return result;
-    };
-
-    // Helper function to get value
-    const getValue = (text: string, key: string): string => {
-      const regex = new RegExp(`- ${key}: ([^\\n]+)`, "i");
-      const match = text.match(regex);
-      if (match) return match[1].trim();
-
-      const regex2 = new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, "i");
-      const match2 = text.match(regex2);
-      return match2 ? match2[1] : "";
-    };
+    // Calculate total duration
+    const pertemuanNum = parseInt(data.jumlahPertemuan) || 2;
+    const waktuPerPertemuan =
+      parseInt(data.alokasiWaktu.match(/(\d+)/)?.[1] || "90") || 90;
+    const totalWaktu = pertemuanNum * waktuPerPertemuan;
 
     // Create a more explicit prompt with direct replacements
-    const directPrompt = replacePlaceholders(prompt);
+    const directPrompt = prompt
+      .replace(/\[JUDUL MODUL\]/g, data.materi)
+      .replace(/\[fase\]/g, data.fase)
+      .replace(/\[kelas\]/g, data.kelas)
+      .replace(/\[materi\]/g, data.materi)
+      .replace(/\[mapel\]/g, data.mapel)
+      .replace(/\[jenjang\]/g, data.jenjang)
+      .replace(/\[jumlahPertemuan\]/g, data.jumlahPertemuan)
+      .replace(/\[alokasiWaktu\]/g, data.alokasiWaktu)
+      .replace(/\[model\]/g, data.model)
+      .replace(/\[namaGuru\]/g, data.namaGuru)
+      .replace(/\[institusi\]/g, data.institusi)
+      .replace(/\[tahunAjaran\]/g, data.tahunAjaran)
+      .replace(/\[semester\]/g, data.semester);
 
     const systemPrompt =
       kurikulum === "Kurikulum Merdeka"
         ? `Anda adalah ahli kurikulum pendidikan Indonesia. 
-    Buatkan MODUL AJAR KURIKULUM MERDEKA dalam format teks lengkap dengan SEMUA KOMPONEN DALAM BENTUK TABEL.
+    Buatkan MODUL AJAR KURIKULUM MERDEKA dengan struktur lengkap sesuai peraturan di Indonesia.
     
     DATA PENTING YANG HARUS DIGUNAKAN:
-    - JUDUL MODUL: "${data.judul}" (GUNAKAN INI SEBAGAI JUDUL UTAMA)
+    - JUDUL MODUL: "${data.materi}" (GUNAKAN INI SEBAGAI JUDUL UTAMA)
     - FASE: "${data.fase}" (GUNAKAN INI DI SEMUA TEMPAT YANG MEMERLUKAN FASE)
     - KELAS: "${data.kelas}" (GUNAKAN INI DI SEMUA TEMPAT YANG MEMERLUKAN KELAS)
     - MATERI: "${data.materi}" (GUNAKAN INI DI SEMUA BAGIAN YANG RELEVAN)
     - MATA PELAJARAN: "${data.mapel}" (GUNAKAN INI DI SEMUA BAGIAN YANG RELEVAN)
+    - JENJANG: "${data.jenjang}" (GUNAKAN INI DI SEMUA BAGIAN YANG RELEVAN)
+    - JUMLAH PERTEMUAN: ${data.jumlahPertemuan} (HARUS SESUAI DENGAN INI)
+    - ALOKASI WAKTU: ${data.alokasiWaktu} (GUNAKAN INI, BUKAN DURASI AWAL)
     
-    FORMAT OUTPUT HARUS SEPERTI INI:
+    FORMAT OUTPUT HARUS SEPERTI INI (SEMUA BAGIAN DALAM TABEL KECUALI LKPD):
     
-    # ${data.judul}
+    MODUL AJAR ${data.mapel}
+    "${data.materi}"
     
-    ## A. INFORMASI UMUM
+    A. Informasi Umum
     
-    ### 1. Identitas Modul
-    | Komponen | Isi |
-    |----------|-----|
-    | Satuan Pendidikan | ${getValue(prompt, "Satuan Pendidikan")}
-    | Mata Pelajaran | ${data.mapel}
-    | Kelas / Fase | ${data.kelas} / ${data.fase}
-    | Semester | ${getValue(prompt, "Semester")}
-    | Tahun Pelajaran | ${getValue(prompt, "Tahun Pelajaran")}
-    | Alokasi Waktu | ${getValue(prompt, "Alokasi Waktu")}
-    | Penyusun | ${getValue(prompt, "Nama Penyusun")}
+    | Komponen | Keterangan |
+    |----------|------------|
+    | Satuan Pendidikan | ${data.institusi} |
+    | Mata Pelajaran | ${data.mapel} |
+    | Jenjang / Kelas / Fase | ${data.jenjang} / ${data.kelas} / ${data.fase} |
+    | Semester / Tahun Pelajaran | ${data.semester} / ${data.tahunAjaran} |
+    | Kurikulum | Kurikulum Merdeka |
+    | Alokasi Waktu | ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit) |
+    | Model / Metode Pembelajaran | ${data.model} |
+    | Karakteristik Peserta Didik | [Deskripsi karakteristik peserta didik sesuai jenjang dan fase] |
+    | Dasar Hukum | Sesuai kebijakan Kurikulum Merdeka yang berlaku |
     
-    ### 2. Kompetensi Awal
-    | Kompetensi Awal | Deskripsi |
-    |-----------------|-----------|
-    | Pengetahuan Prasyarat | Peserta didik telah memahami konsep dasar terkait ${data.materi} |
-    | Keterampilan Prasyarat | Peserta didik mampu melakukan operasi dasar yang relevan dengan ${data.materi} |
-    | Sikap Prasyarat | Peserta didik menunjukkan sikap kritis dan rasa ingin tahu |
+    B. Capaian Pembelajaran
     
-    ### 3. Profil Pelajar Pancasila
-    | Dimensi | Deskripsi Pengembangan |
-    |---------|------------------------|
-    | [Dimensi 1] | [Deskripsi] |
-    | [Dimensi 2] | [Deskripsi] |
-    | [Dimensi 3] | [Deskripsi] |
+    Capaian Pembelajaran (CP)
+    [CP sesuai dengan fase dan mata pelajaran]
     
-    ### 4. Sarana dan Prasarana
-    | Jenis Sarana | Keterangan |
-    |--------------|------------|
-    | Media Pembelajaran | LCD Proyektor, Presentasi Digital, Video Pembelajaran |
-    | Alat Pembelajaran | Buku Teks ${data.mapel}, LKPD, Alat Peraga |
-    | Sumber Belajar | Modul Ajar, Buku Referensi, Sumber Online Terpercaya |
-    | Lingkungan Belajar | Ruang kelas yang kondusif, Laboratorium (jika diperlukan) |
-    
-    ### 5. Target Peserta Didik
-    | Karakteristik | Deskripsi |
-    |---------------|-----------|
-    | Jenis Peserta Didik | Reguler |
-    | Jumlah Peserta Didik | 30-35 siswa |
-    | Kebutuhan Khusus | Tidak ada |
-    
-    ### 6. Model Pembelajaran
-    | Komponen | Isi |
-    |----------|-----|
-    | Model Utama | ${getValue(prompt, "Model Pembelajaran")}
-    | Pendekatan | Saintifik |
-    | Strategi | Eksplorasi, Elaborasi, Konfirmasi |
-    | Metode | Diskusi Kelompok, Demonstrasi, Praktikum |
-    | Teknik | Tanya Jawab, Pemberian Tugas, Penugasan Kelompok |
-    
-    ## B. KOMPONEN INTI
-    
-    ### 7. Capaian Pembelajaran (CP)
-    | Elemen | Capaian Pembelajaran |
-    |--------|---------------------|
-    | Fase | ${data.fase}
-    | Elemen | [elemen capaian] |
-    | CP Pengetahuan | Memahami konsep ${data.materi} dan penerapannya |
-    | CP Keterampilan | Menerapkan konsep ${data.materi} dalam pemecahan masalah |
-    
-    ### 8. Tujuan Pembelajaran (TP)
+    Tujuan Pembelajaran (TP)
     | No | Tujuan Pembelajaran |
     |----|---------------------|
-    | 1 | Peserta didik mampu menjelaskan konsep dasar ${data.materi} dengan tepat |
-    | 2 | Peserta didik mampu menerapkan rumus ${data.materi} dalam soal latihan |
-    | 3 | Peserta didik mampu menganalisis penerapan ${data.materi} dalam kehidupan sehari-hari |
-    | 4 | Peserta didik mampu menyelesaikan masalah terkait ${data.materi} dengan langkah yang sistematis |
-    | 5 | Peserta didik mampu mengkomunikasikan hasil pemecahan masalah ${data.materi} dengan jelas |
+    | 1 | [TP 1] |
+    | 2 | [TP 2] |
+    | 3 | [TP 3] |
+    | 4 | [TP 4] |
+    | 5 | [TP 5] |
     
-    ### 9. Pemahaman Bermakna
-    | Aspek | Pemahaman Bermakna |
-    |--------|-------------------|
-    | Konsep | ${data.materi} merupakan konsep fundamental dalam ${data.mapel} yang menjadi dasar untuk pembelajaran lebih lanjut |
-    | Relevansi | Konsep ${data.materi} sangat relevan dengan kehidupan sehari-hari, terutama dalam konteks [konteks relevan] |
-    | Aplikasi | Pemahaman ${data.materi} memungkinkan peserta didik untuk memecahkan masalah nyata dalam berbagai situasi |
+    Pemetaan TP ke Pertemuan
+    | TP | Pertemuan 1 | Pertemuan 2 | ${pertemuanNum > 2 ? "Pertemuan 3" : ""} ${pertemuanNum > 3 ? "Pertemuan 4" : ""} ${pertemuanNum > 4 ? "Pertemuan 5" : ""} ${pertemuanNum > 5 ? "Pertemuan 6" : ""} ${pertemuanNum > 6 ? "Pertemuan 7" : ""} ${pertemuanNum > 7 ? "Pertemuan 8" : ""} |
+    |----|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+    | TP 1 | ✓ | | | | | | | |
+    | TP 2 | ✓ | | | | | | | |
+    | TP 3 | | ✓ | | | | | | |
+    | TP 4 | | ✓ | | | | | | |
+    | TP 5 | | | ✓ | | | | | |
     
-    ### 10. Pertanyaan Pemantik
-    | No | Pertanyaan Pemantik |
-    |----|-------------------|
-    | 1 | Mengapa kita perlu mempelajari konsep ${data.materi}? |
-    | 2 | Di mana kita bisa menemukan penerapan ${data.materi} dalam kehidupan sehari-hari? |
-    | 3 | Bagaimana cara menentukan [aspek penting dari materi] jika diketahui [data terkait]? |
-    | 4 | Apa yang terjadi jika kita menerapkan [konsep] secara tidak tepat? |
-    | 5 | Bagaimana cara menghubungkan konsep ${data.materi} dengan pembelajaran sebelumnya? |
+    C. Profil Pelajar Pancasila
     
-    ### 11. Kegiatan Pembelajaran
+    Dimensi yang dikembangkan
+    | No | Dimensi Profil Pelajar Pancasila |
+    |----|--------------------------------|
+    ${data.skl.map((skl, i) => `| ${i + 1} | ${skl} |`).join("\n    ")}
     
-    #### a. Pendahuluan
-    | Waktu | Kegiatan | Tujuan |
-    |-------|----------|--------|
-    | 5 menit | Guru membuka pembelajaran dengan salam dan doa | Menciptakan suasana pembelajaran yang kondusif |
-    | 5 menit | Apersepsi melalui tanya jawab tentang pengalaman siswa terkait ${data.materi} | Mengaktifkan pengetahuan awal siswa |
-    | 5 menit | Penyampaian tujuan pembelajaran dan kegiatan yang akan dilakukan | Memberikan gambaran jelas tentang pembelajaran |
+    Elemen & Sub-elemen
+    | Elemen | Sub-elemen | Keterangan |
+    |--------|-------------|------------|
+    | [Elemen 1] | [Sub-elemen 1.1] | [Keterangan] |
+    | [Elemen 1] | [Sub-elemen 1.2] | [Keterangan] |
+    | [Elemen 2] | [Sub-elemen 2.1] | [Keterangan] |
     
-    #### b. Kegiatan Inti
-    | Waktu | Kegiatan | Tujuan |
-    |-------|----------|--------|
-    | 15 menit | Eksplorasi konsep ${data.materi} melalui sumber belajar yang disediakan | Peserta didik memahami konsep dasar ${data.materi} |
-    | 20 menit | Diskusi kelompok untuk menganalisis penerapan ${data.materi} dalam kasus nyata | Peserta didik mengembangkan pemahaman konsep melalui kolaborasi |
-    | 15 menit | Presentasi hasil diskusi dan tanya jawab | Peserta didik mengkomunikasikan pemahaman dan memperdalam konsep |
-    | 10 menit | Praktik penerapan konsep ${data.materi} melalui LKPD | Peserta didik melatih keterampilan penerapan konsep |
+    Keterkaitan dengan pembelajaran
+    | Aspek | Keterkaitan |
+    |-------|-------------|
+    | Dimensi | [Deskripsi keterkaitan Profil Pelajar Pancasila dengan pembelajaran ${data.materi}] |
+    | Implementasi | [Cara mengimplementasikan dimensi dalam pembelajaran] |
     
-    #### c. Penutup
-    | Waktu | Kegiatan | Tujuan |
-    |-------|----------|--------|
-    | 5 menit | Refleksi pembelajaran oleh siswa | Peserta didik menyadari proses dan hasil pembelajaran |
-    | 5 menit | Penyimpulan materi oleh guru | Memastikan pemahaman konsep yang tepat |
-    | 5 menit | Evaluasi formatif melalui kuis singkat | Mengukur pencapaian tujuan pembelajaran |
+    D. Materi Pembelajaran
     
-    ### 12. Asesmen
+    Materi Pokok
+    | Komponen | Keterangan |
+    |----------|------------|
+    | Materi | ${data.materi} |
+    | Deskripsi | [Deskripsi materi pokok] |
     
-    #### a. Asesmen Formatif
-    | Jenis Asesmen | Teknik | Instrumen | Waktu |
-    |---------------|--------|-----------|-------|
-    | Observasi | Pengamatan partisipasi | Lembar Observasi | Selama pembelajaran |
-    | Tanya Jawab | Lisan | Daftar Pertanyaan | Selama pembelajaran |
-    | Kuis Singkat | Tes Tertulis | Soal Pilihan Ganda | 10 menit |
-    | LKPD | Penilaian Kerja | Lembar Kerja | 15 menit |
+    Materi Fakta
+    | No | Fakta | Deskripsi |
+    |----|-------|----------|
+    | 1 | [Fakta 1] | [Deskripsi fakta 1] |
+    | 2 | [Fakta 2] | [Deskripsi fakta 2] |
+    | 3 | [Fakta 3] | [Deskripsi fakta 3] |
     
-    #### b. Asesmen Sumatif
-    | Jenis Asesmen | Teknik | Instrumen | Waktu |
-    |---------------|--------|-----------|-------|
-    | Tes Tertulis | Tes Uraian | Soal Uraian | 30 menit |
-    | Proyek | Penilaian Proyek | Rubrik Proyek | 1 minggu |
+    Materi Konsep
+    | No | Konsep | Deskripsi |
+    |----|--------|----------|
+    | 1 | [Konsep 1] | [Deskripsi konsep 1] |
+    | 2 | [Konsep 2] | [Deskripsi konsep 2] |
+    | 3 | [Konsep 3] | [Deskripsi konsep 3] |
     
-    ### 13. Kriteria Ketercapaian Tujuan Pembelajaran
-    | Aspek | Kriteria | Indikator Pencapaian |
-    |-------|----------|---------------------|
-    | Pengetahuan | Memahami konsep ${data.materi} | Peserta didik mampu menjelaskan konsep dengan benar |
-    | Keterampilan | Menerapkan konsep ${data.materi} | Peserta didik mampu menyelesaikan soal dengan tepat |
-    | Sikap | Menunjukkan sikap ilmiah | Peserta didik aktif berpartisipasi dan bertanya |
+    Materi Prosedural
+    | No | Prosedur | Deskripsi |
+    |----|----------|----------|
+    | 1 | [Prosedur 1] | [Deskripsi prosedur 1] |
+    | 2 | [Prosedur 2] | [Deskripsi prosedur 2] |
+    | 3 | [Prosedur 3] | [Deskripsi prosedur 3] |
     
-    ### 14. Refleksi Guru dan Peserta Didik
-    | Komponen | Pertanyaan Refleksi |
-    |----------|-------------------|
-    | Refleksi Guru | Apa strategi yang paling efektif dalam pembelajaran hari ini? |
-    | Refleksi Guru | Bagaimana cara meningkatkan pemahaman siswa tentang konsep yang sulit? |
-    | Refleksi Peserta Didik | Konsep apa yang paling kamu pahami hari ini? |
-    | Refleksi Peserta Didik | Bagian mana dari pembelajaran yang paling menantang bagimu? |
+    E. Rencana Pembelajaran per Pertemuan
     
-    ## C. LAMPIRAN
+    ${Array.from({ length: pertemuanNum }, (_, i) => {
+      // Distribute TP across meetings
+      let tpFocus: any[] = [];
+      if (i === 0)
+        tpFocus = [1, 2]; // First meeting
+      else if (i === 1)
+        tpFocus = [2, 3]; // Second meeting
+      else if (i === 2)
+        tpFocus = [3, 4]; // Third meeting
+      else if (i === 3)
+        tpFocus = [4, 5]; // Fourth meeting
+      else if (i === 4)
+        tpFocus = [5]; // Fifth meeting if exists
+      else if (i === 5)
+        tpFocus = [5]; // Sixth meeting if exists
+      else if (i === 6)
+        tpFocus = [5]; // Seventh meeting if exists
+      else if (i === 7) tpFocus = [5]; // Eighth meeting if exists
+
+      // Add model-specific components
+      let modelSpecificContent = "";
+      if (data.model === "Project Based Learning") {
+        modelSpecificContent = `
+        
+        Deskripsi Proyek
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Judul Proyek | [Judul proyek ${data.materi}] |
+        | Deskripsi | [Deskripsi proyek ${data.materi}] |
+        | Tujuan | [Tujuan proyek] |
+        
+        Tahapan Proyek
+        | Tahap | Kegiatan | Waktu | Output |
+        |-------|----------|-------|--------|
+        | 1 | [Tahap 1] | [Waktu] | [Output 1] |
+        | 2 | [Tahap 2] | [Waktu] | [Output 2] |
+        | 3 | [Tahap 3] | [Waktu] | [Output 3] |
+        `;
+        if (i === pertemuanNum - 1) {
+          modelSpecificContent += `
+        
+        Presentasi
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Format | [Format presentasi] |
+        | Durasi | [Durasi presentasi] |
+        | Penilaian | [Kriteria penilaian] |
+        
+        Rubrik Proyek
+        | Aspek | Kriteria | Bobot |
+        |-------|----------|-------|
+        | Perencanaan | [Kriteria perencanaan] | 20% |
+        | Proses | [Kriteria proses] | 40% |
+        | Produk | [Kriteria produk] | 30% |
+        | Presentasi | [Kriteria presentasi] | 10% |
+        `;
+        }
+      } else if (data.model === "Problem Based Learning") {
+        modelSpecificContent = `
+        
+        Skenario Masalah
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Masalah | [Skenario masalah nyata terkait ${data.materi}] |
+        | Konteks | [Konteks masalah] |
+        | Tantangan | [Tantangan yang dihadapi] |
+        
+        Hipotesis Solusi
+        | No | Hipotesis | Alasan |
+        |----|-----------|--------|
+        | 1 | [Hipotesis 1] | [Alasan 1] |
+        | 2 | [Hipotesis 2] | [Alasan 2] |
+        `;
+        if (i === Math.floor(pertemuanNum / 2)) {
+          modelSpecificContent += `
+        
+        Evaluasi Solusi
+        | Kriteria | Penilaian | Skor |
+        |----------|-----------|-------|
+        | [Kriteria 1] | [Penilaian 1] | [Skor] |
+        | [Kriteria 2] | [Penilaian 2] | [Skor] |
+        `;
+        }
+      } else if (data.model === "Cooperative Learning") {
+        modelSpecificContent = `
+        
+        Struktur Kelompok
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Jumlah Anggota | [Jumlah anggota per kelompok] |
+        | Metode Pengelompokan | [Metode pembentukan kelompok] |
+        | Peran | [Distribusi peran dalam kelompok] |
+        
+        Peran Peserta Didik
+        | Peran | Tanggung Jawab | Kriteria |
+        |------|----------------|----------|
+        | [Peran 1] | [Tanggung jawab 1] | [Kriteria 1] |
+        | [Peran 2] | [Tanggung jawab 2] | [Kriteria 2] |
+        `;
+      } else if (data.model === "Blended Learning") {
+        modelSpecificContent = `
+        
+        ${
+          i % 2 === 0
+            ? `
+        Aktivitas Daring
+        | Kegiatan | Platform | Waktu | Tujuan |
+        |----------|----------|-------|--------|
+        | [Kegiatan 1] | [Platform 1] | [Waktu] | [Tujuan 1] |
+        | [Kegiatan 2] | [Platform 2] | [Waktu] | [Tujuan 2] |
+        `
+            : `
+        Aktivitas Luring
+        | Kegiatan | Metode | Waktu | Tujuan |
+        |----------|---------|-------|--------|
+        | [Kegiatan 1] | [Metode 1] | [Waktu] | [Tujuan 1] |
+        | [Kegiatan 2] | [Metode 2] | [Waktu] | [Tujuan 2] |
+        `
+        }
+        `;
+      } else if (data.model === "Discovery Learning") {
+        modelSpecificContent = `
+        
+        Tahapan Discovery
+        | Tahap | Kegiatan | Waktu | Tujuan |
+        |-------|----------|-------|--------|
+        | Stimulasi | [Deskripsi stimulasi] | [Waktu] | [Tujuan] |
+        | Identifikasi masalah | [Deskripsi identifikasi masalah] | [Waktu] | [Tujuan] |
+        | Pengumpulan data | [Deskripsi pengumpulan data] | [Waktu] | [Tujuan] |
+        | Verifikasi | [Deskripsi verifikasi] | [Waktu] | [Tujuan] |
+        | Generalisasi | [Deskripsi generalisasi] | [Waktu] | [Tujuan] |
+        `;
+      } else if (data.model === "Inquiry Learning") {
+        modelSpecificContent = `
+        
+        Pertanyaan Inkuiri
+        | No | Pertanyaan | Jenis | Tujuan |
+        |----|------------|-------|--------|
+        | 1 | [Pertanyaan 1] | [Jenis 1] | [Tujuan 1] |
+        | 2 | [Pertanyaan 2] | [Jenis 2] | [Tujuan 2] |
+        
+        Proses Penyelidikan
+        | Tahap | Kegiatan | Metode | Output |
+        |-------|----------|--------|--------|
+        | 1 | [Kegiatan 1] | [Metode 1] | [Output 1] |
+        | 2 | [Kegiatan 2] | [Metode 2] | [Output 2] |
+        `;
+      } else if (data.model === "Contextual Teaching and Learning (CTL)") {
+        modelSpecificContent = `
+        
+        Konteks Nyata
+        | Konteks | Relevansi | Implementasi |
+        |---------|-----------|--------------|
+        | [Konteks 1] | [Relevansi 1] | [Implementasi 1] |
+        | [Konteks 2] | [Relevansi 2] | [Implementasi 2] |
+        
+        Refleksi Kontekstual
+        | Aspek | Pertanyaan | Tujuan |
+        |-------|------------|--------|
+        | Pengalaman | [Pertanyaan 1] | [Tujuan 1] |
+        | Aplikasi | [Pertanyaan 2] | [Tujuan 2] |
+        `;
+      } else if (data.model === "Differentiated Learning") {
+        modelSpecificContent = `
+        
+        Strategi Diferensiasi
+        | Aspek | Strategi | Implementasi |
+        |-------|----------|--------------|
+        | Konten | [Strategi konten] | [Implementasi konten] |
+        | Proses | [Strategi proses] | [Implementasi proses] |
+        | Produk | [Strategi produk] | [Implementasi produk] |
+        
+        Penyesuaian Asesmen
+        | Jenis | Penyesuaian | Alat |
+        |-------|-------------|------|
+        | [Jenis 1] | [Penyesuaian 1] | [Alat 1] |
+        | [Jenis 2] | [Penyesuaian 2] | [Alat 2] |
+        `;
+      }
+
+      return `
+    Pertemuan ke-${i + 1} (${waktuPerPertemuan} menit)
     
-    ### 15. Lembar Kerja Peserta Didik (LKPD)
-    | Komponen | Isi |
-    |----------|-----|
-    | Judul Aktivitas | Eksplorasi Konsep ${data.materi} |
-    | Tujuan | Memahami penerapan ${data.materi} dalam konteks nyata |
-    | Petunjuk Pengerjaan | 1. Baca kasus yang diberikan 2. Diskusikan dengan kelompok 3. Tulis hasil analisis |
-    | Soal/Instruksi | Analisis kasus [kasus terkait materi] menggunakan konsep ${data.materi} |
-    | Waktu Pengerjaan | 20 menit |
+    Tujuan Pembelajaran
+    | No | Tujuan Pembelajaran |
+    |----|---------------------|
+    ${tpFocus.map((tp) => `| ${tp} | [TP ${tp} untuk pertemuan ${i + 1}] |`).join("\n    ")}
     
-    ### 16. Bahan Bacaan
-    | Jenis | Sumber | Keterangan |
-    |-------|--------|------------|
-    | Untuk Peserta Didik | Buku Teks ${data.mapel} Kelas ${data.kelas} | Bab tentang ${data.materi} |
-    | Untuk Peserta Didik | Video Pembelajaran ${data.materi} | Durasi 10 menit |
-    | Untuk Guru | Modul Ajar ${data.mapel} | Panduan pembelajaran ${data.materi} |
-    | Untuk Guru | Jurnal Pendidikan ${data.mapel} | Artikel tentang strategi pembelajaran ${data.materi} |
+    Pemantik / Apersepsi
+    | Kegiatan | Waktu | Metode |
+    |----------|-------|--------|
+    | [Pemantik/aperspsi untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
     
-    ### 17. Glosarium
-    | Istilah | Definisi |
-    |---------|----------|
-    | ${data.materi.split(" ")[0] || "Konsep Utama"} | Penjelasan tentang konsep utama yang dipelajari |
-    | Variabel | Simbol yang mewakili nilai yang dapat berubah |
-    | Persamaan | Pernyataan matematika yang menunjukkan kesetaraan dua ekspresi |
-    | Solusi | Nilai atau himpunan nilai yang memenuhi persamaan |
-    | Aplikasi | Penerapan konsep matematika dalam situasi nyata |
+    Kegiatan Inti
+    | No | Kegiatan | Waktu | Metode |
+    |----|----------|-------|--------|
+    | 1 | [Kegiatan inti 1 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+    | 2 | [Kegiatan inti 2 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+    | 3 | [Kegiatan inti 3 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+    ${modelSpecificContent}
     
-    ### 18. Daftar Pustaka
-    | No | Sumber | Jenis | Tahun |
-    |----|--------|-------|-------|
-    | 1 | Buku Teks ${data.mapel} Kelas ${data.kelas} | Buku Teks | 2022 |
-    | 2 | Modul Ajar Kurikulum Merdeka ${data.mapel} | Modul Ajar | 2022 |
-    | 3 | Panduan Pembelajaran ${data.mapel} | Panduan | 2023 |
-    | 4 | Website resmi Kemendikbudristek | Sumber Online | 2025 |
+    Kegiatan Penutup
+    | Kegiatan | Waktu | Metode |
+    |----------|-------|--------|
+    | [Kegiatan penutup untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
     
-    ---
-    *Modul ini disusun sesuai Kurikulum Merdeka dan Permendikdasmen No. 13 Tahun 2025*
+    Asesmen Pertemuan
+    | Jenis | Instrumen | Waktu | Kriteria |
+    |-------|-----------|-------|----------|
+    | [Jenis asesmen] | [Instrumen] | [Waktu] | [Kriteria] |
+    `;
+    }).join("")}
+    
+    F. Lembar Kerja Peserta Didik (LKPD)
+    
+    Judul LKPD
+    ${data.materi}
+    
+    Petunjuk Belajar
+    1. Bacalah dengan teliti petunjuk setiap kegiatan
+    2. Kerjakan secara mandiri atau dalam kelompok sesuai instruksi
+    3. Gunakan alat dan bahan yang tersedia dengan baik
+    4. Tanyakan kepada guru jika ada yang tidak kamu pahami
+    
+    Tujuan Pembelajaran
+    1. [Tujuan pembelajaran 1]
+    2. [Tujuan pembelajaran 2]
+    3. [Tujuan pembelajaran 3]
+    
+    Materi Singkat
+    ${data.materi} adalah [deskripsi singkat ${data.materi}]. Konsep ini penting karena [alasan pentingnya ${data.materi}].
+    
+    Aktivitas / Langkah Kerja
+    1. [Langkah kerja 1]
+    2. [Langkah kerja 2]
+    3. [Langkah kerja 3]
+    4. [Langkah kerja 4]
+    5. [Langkah kerja 5]
+    
+    ${
+      data.jenjang === "SMK"
+        ? `
+    Job Sheet
+    
+    Alat dan Bahan
+    1. [Alat/Bahan 1]: [Jumlah]
+    2. [Alat/Bahan 2]: [Jumlah]
+    3. [Alat/Bahan 3]: [Jumlah]
+    
+    Langkah Kerja Sistematis
+    1. [Langkah kerja 1]
+    2. [Langkah kerja 2]
+    3. [Langkah kerja 3]
+    4. [Langkah kerja 4]
+    5. [Langkah kerja 5]
+    
+    Keselamatan Kerja (K3)
+    1. [Aspek keselamatan 1]: [Keterangan]
+    2. [Aspek keselamatan 2]: [Keterangan]
+    3. [Aspek keselamatan 3]: [Keterangan]
+    `
+        : ""
+    }
+    
+    Tugas / Soal / Studi Kasus
+    1. [Tugas/Soal/Studi Kasus 1]
+    2. [Tugas/Soal/Studi Kasus 2]
+    3. [Tugas/Soal/Studi Kasus 3]
+    
+    Komponen Penilaian
+    1. Sikap: [Kriteria penilaian sikap]
+    2. Pengetahuan: [Kriteria penilaian pengetahuan]
+    3. Keterampilan: [Kriteria penilaian keterampilan]
+    
+    G. Asesmen Pembelajaran
+    
+    Asesmen Diagnostik
+    | Komponen | Instrumen | Tujuan |
+    |----------|-----------|--------|
+    | [Komponen 1] | [Instrumen 1] | [Tujuan 1] |
+    | [Komponen 2] | [Instrumen 2] | [Tujuan 2] |
+    
+    Asesmen Formatif
+    | Jenis | Teknik | Instrumen | Waktu |
+    |-------|--------|-----------|-------|
+    | [Jenis 1] | [Teknik 1] | [Instrumen 1] | [Waktu] |
+    | [Jenis 2] | [Teknik 2] | [Instrumen 2] | [Waktu] |
+    
+    Asesmen Sumatif
+    | Jenis | Bentuk | Waktu | Bobot |
+    |-------|--------|-------|-------|
+    | [Jenis 1] | [Bentuk 1] | [Waktu] | [Bobot] |
+    | [Jenis 2] | [Bentuk 2] | [Waktu] | [Bobot] |
+    
+    ${
+      data.model.includes("Project")
+        ? `
+    Asesmen Proyek / Kinerja
+    | Aspek | Kriteria | Indikator | Skor Maks |
+    |-------|----------|-----------|------------|
+    | Perencanaan | [Kriteria perencanaan] | [Indikator] | [Skor] |
+    | Proses | [Kriteria proses] | [Indikator] | [Skor] |
+    | Produk | [Kriteria produk] | [Indikator] | [Skor] |
+    | Presentasi | [Kriteria presentasi] | [Indikator] | [Skor] |
+    
+    Rubrik Penilaian
+    | Aspek | Kriteria | Bobot |
+    |-------|----------|-------|
+    | Perencanaan | [Kriteria perencanaan] | 20% |
+    | Proses | [Kriteria proses] | 40% |
+    | Produk | [Kriteria produk] | 30% |
+    | Presentasi | [Kriteria presentasi] | 10% |
+    `
+        : ""
+    }
+    
+    H. Media dan Sumber Belajar
+    
+    Media Pembelajaran
+    | No | Media | Jenis | Fungsi | Penggunaan |
+    |----|-------|-------|--------|------------|
+    | 1 | [Media 1] | [Jenis 1] | [Fungsi 1] | [Penggunaan 1] |
+    | 2 | [Media 2] | [Jenis 2] | [Fungsi 2] | [Penggunaan 2] |
+    | 3 | [Media 3] | [Jenis 3] | [Fungsi 3] | [Penggunaan 3] |
+    
+    Sumber Belajar
+    | No | Sumber | Jenis | Relevansi | Akses |
+    |----|--------|-------|----------|-------|
+    | 1 | [Sumber 1] | [Jenis 1] | [Relevansi 1] | [Akses 1] |
+    | 2 | [Sumber 2] | [Jenis 2] | [Relevansi 2] | [Akses 2] |
+    | 3 | [Sumber 3] | [Jenis 3] | [Relevansi 3] | [Akses 3] |
+    
+    I. Diferensiasi Pembelajaran
+    
+    Diferensiasi Konten
+    | Aspek | Strategi | Implementasi | Penilaian |
+    |-------|----------|--------------|-----------|
+    | [Aspek 1] | [Strategi 1] | [Implementasi 1] | [Penilaian 1] |
+    | [Aspek 2] | [Strategi 2] | [Implementasi 2] | [Penilaian 2] |
+    
+    Diferensiasi Proses
+    | Kegiatan | Strategi | Kelompok | Waktu |
+    |----------|----------|----------|-------|
+    | [Kegiatan 1] | [Strategi 1] | [Kelompok 1] | [Waktu] |
+    | [Kegiatan 2] | [Strategi 2] | [Kelompok 2] | [Waktu] |
+    
+    Diferensiasi Produk
+    | Jenis | Pilihan | Kriteria | Waktu |
+    |-------|---------|----------|-------|
+    | [Jenis 1] | [Pilihan 1] | [Kriteria 1] | [Waktu] |
+    | [Jenis 2] | [Pilihan 2] | [Kriteria 2] | [Waktu] |
+    
+    J. Refleksi Pembelajaran
+    
+    Refleksi Peserta Didik
+    | No | Pertanyaan | Tujuan |
+    |----|------------|--------|
+    | 1 | [Pertanyaan refleksi 1] | [Tujuan 1] |
+    | 2 | [Pertanyaan refleksi 2] | [Tujuan 2] |
+    | 3 | [Pertanyaan refleksi 3] | [Tujuan 3] |
+    
+    Refleksi Guru
+    | No | Pertanyaan | Fokus |
+    |----|------------|-------|
+    | 1 | [Pertanyaan refleksi guru 1] | [Fokus 1] |
+    | 2 | [Pertanyaan refleksi guru 2] | [Fokus 2] |
+    | 3 | [Pertanyaan refleksi guru 3] | [Fokus 3] |
+    
+    Daftar Pustaka
+    
+    | No | Sumber Pustaka | Pengarang | Tahun | Penerbit | ISBN |
+    |----|---------------|-----------|-------|---------|------|
+    | 1 | [Judul Buku 1] | [Pengarang 1] | [Tahun 1] | [Penerbit 1] | [ISBN 1] |
+    | 2 | [Judul Buku 2] | [Pengarang 2] | [Tahun 2] | [Penerbit 2] | [ISBN 2] |
+    | 3 | [Judul Buku 3] | [Pengarang 3] | [Tahun 3] | [Penerbit 3] | [ISBN 3] |
+    
+    Glosarium
+    
+    | No | Istilah | Definisi | Contoh |
+    |----|---------|----------|--------|
+    | 1 | [Istilah 1] | [Definisi istilah 1] | [Contoh 1] |
+    | 2 | [Istilah 2] | [Definisi istilah 2] | [Contoh 2] |
+    | 3 | [Istilah 3] | [Definisi istilah 3] | [Contoh 3] |
     
     **INSTRUKSI KRUSIAL:**
-    1. JUDUL MODUL HARUS PERSIS: "${data.judul}" - TULIS DI BAGIAN PALING ATAS
-    2. PADA BAGIAN "Kelas / Fase", gunakan format: ${data.kelas} / ${data.fase}
-    3. PADA BAGIAN "Fase" di Capaian Pembelajaran, gunakan "${data.fase}" TANPA MENGUBAHNYA
+    1. JUDUL MODUL HARUS: "${data.materi}" - TULIS DI BAGIAN PALING ATAS
+    2. PADA BAGIAN "Jenjang / Kelas / Fase", gunakan format: ${data.jenjang} / ${data.kelas} / ${data.fase}
+    3. PADA BAGIAN "Semester / Tahun Pelajaran", gunakan format: ${data.semester} / ${data.tahunAjaran}
     4. GUNAKAN MATERI: "${data.materi}" DI SEMUA BAGIAN YANG RELEVAN
     5. GUNAKAN MATA PELAJARAN: "${data.mapel}" DI SEMUA BAGIAN YANG RELEVAN
-    6. JANGAN GUNAKAN TEKS "[JUDUL MODUL]" ATAU "(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS)" - GANTI DENGAN NILAI YANG TELAH DIBERIKAN
-    7. Pastikan semua tabel memiliki format markdown yang benar dengan header |---|---|`
+    6. JUMLAH PERTEMUAN HARUS SESUAI: ${data.jumlahPertemuan} PERTEMUAN
+    7. ALOKASI WAKTU HARUS: ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit)
+    8. Pastikan struktur lengkap sesuai dengan Kurikulum Merdeka (A-J)
+    9. SEMUA BAGIAN HARUS DALAM FORMAT TABEL KECUALI LKPD
+    10. LKPD TIDAK BOLEH MENGGUNAKAN TABEL, HARUS TERSUSUN RAPI`
         : `Anda adalah ahli kurikulum pendidikan Indonesia. 
-    Buatkan MODUL AJAR KURIKULUM 2013 (K13) dalam format teks lengkap dengan SEMUA KOMPONEN DALAM BENTUK TABEL.
+    Buatkan MODUL AJAR KURIKULUM BERBASIS KOMPETENSI/K13 dengan struktur lengkap sesuai peraturan di Indonesia.
     
     DATA PENTING YANG HARUS DIGUNAKAN:
-    - JUDUL MODUL: "${data.judul}" (GUNAKAN INI SEBAGAI JUDUL UTAMA)
+    - JUDUL MODUL: "${data.materi}" (GUNAKAN INI SEBAGAI JUDUL UTAMA)
     - KELAS: "${data.kelas}" (GUNAKAN INI DI SEMUA TEMPAT YANG MEMERLUKAN KELAS)
     - MATERI: "${data.materi}" (GUNAKAN INI DI SEMUA BAGIAN YANG RELEVAN)
     - MATA PELAJARAN: "${data.mapel}" (GUNAKAN INI DI SEMUA BAGIAN YANG RELEVAN)
+    - JENJANG: "${data.jenjang}" (GUNAKAN INI DI SEMUA BAGIAN YANG RELEVAN)
+    - JUMLAH PERTEMUAN: ${data.jumlahPertemuan} (HARUS SESUAI DENGAN INI)
+    - ALOKASI WAKTU: ${data.alokasiWaktu} (GUNAKAN INI, BUKAN DURASI AWAL)
     
-    FORMAT OUTPUT HARUS SEPERTI INI:
+    FORMAT OUTPUT HARUS SEPERTI INI (SEMUA BAGIAN DALAM TABEL KECUALI LKPD):
     
-    # ${data.judul}
+    MODUL AJAR ${data.mapel}
+    "${data.materi}"
     
-    ## A. IDENTITAS
+    A. Identitas Modul
     
-    ### 1. Identitas Modul
-    | Komponen | Isi |
-    |----------|-----|
-    | Satuan Pendidikan | ${getValue(prompt, "Satuan Pendidikan")}
-    | Mata Pelajaran | ${data.mapel}
-    | Kelas | ${data.kelas}
-    | Semester | ${getValue(prompt, "Semester")}
-    | Tahun Pelajaran | ${getValue(prompt, "Tahun Pelajaran")}
-    | Alokasi Waktu | ${getValue(prompt, "Alokasi Waktu")}
-    | Penyusun | ${getValue(prompt, "Nama Penyusun")}
+    | Komponen | Keterangan |
+    |----------|------------|
+    | Satuan Pendidikan | ${data.institusi} |
+    | Mata Pelajaran | ${data.mapel} |
+    | Kelas / Semester | ${data.kelas} / ${data.semester} |
+    | Tahun Pelajaran | ${data.tahunAjaran} |
+    | Alokasi Waktu | ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit) |
+    | Model / Metode Pembelajaran | ${data.model} |
     
-    ### 2. Kompetensi Inti (KI)
+    B. Kompetensi
+    
+    Kompetensi Inti (KI)
     | KI | Kompetensi Inti |
     |----|----------------|
-    | KI-1 | Menghargai dan menghayati ajaran agama yang dianutnya |
-    | KI-2 | Menghargai dan menghayati perilaku jujur, disiplin, tanggung jawab, peduli (gotong royong, kerjasama, toleran, damai), santun, responsif dan pro-aktif dan menunjukkan sikap sebagai bagian dari solusi atas berbagai permasalahan dalam berinteraksi secara efektif dengan lingkungan sosial dan alam serta dalam menempatkan diri sebagai cerminan bangsa dalam pergaulan dunia |
-    | KI-3 | Memahami, menerapkan, menganalisis pengetahuan faktual, konseptual, prosedural berdasarkan rasa ingin tahunya tentang ilmu pengetahuan, teknologi, seni, budaya terkait fenomena dan kejadian tampak mata |
-    | KI-4 | Mengolah, menalar, menyaji, dan mencipta dalam ranah konkret dan ranah abstrak terkait dengan pengembangan dari yang dipelajarinya di sekolah secara mandiri serta bertindak secara efektif dan kreatif, dan mampu menggunakan metoda sesuai kaidah keilmuan |
+    | KI-1 | [KI-1 sesuai jenjang] |
+    | KI-2 | [KI-2 sesuai jenjang] |
+    | KI-3 | [KI-3 sesuai jenjang] |
+    | KI-4 | [KI-4 sesuai jenjang] |
     
-    ### 3. Kompetensi Dasar (KD)
+    Kompetensi Dasar (KD)
     | No | Kompetensi Dasar |
-    |----|-----------------|
-    | 1 | 3.1 Menerapkan konsep ${data.materi} dalam pemecahan masalah |
-    | 2 | 3.2 Menganalisis hubungan ${data.materi} dengan kehidupan sehari-hari |
-    | 3 | 4.1 Menyelesaikan soal terkait ${data.materi} dengan metode yang tepat |
-    | 4 | 4.2 Membuat laporan hasil praktikum ${data.materi} |
+    |----|------------------|
+    | 1 | [KD 1] |
+    | 2 | [KD 2] |
+    | 3 | [KD 3] |
+    | 4 | [KD 4] |
     
-    ### 4. Indikator Pencapaian Kompetensi
-    | No | Indikator |
-    |----|-----------|
-    | 1 | Menjelaskan konsep dasar ${data.materi} dengan benar |
-    | 2 | Menerapkan rumus ${data.materi} dalam soal |
-    | 3 | Menganalisis penerapan ${data.materi} dalam kasus nyata |
-    | 4 | Menyajikan hasil analisis secara sistematis |
+    Indikator Pencapaian Kompetensi
+    | No | Indikator | KD Terkait |
+    |----|-----------|------------|
+    | 1 | [Indikator 1] | [KD] |
+    | 2 | [Indikator 2] | [KD] |
+    | 3 | [Indikator 3] | [KD] |
+    | 4 | [Indikator 4] | [KD] |
     
-    ### 5. Tujuan Pembelajaran
-    | No | Tujuan Pembelajaran |
-    |----|---------------------|
-    | 1 | Peserta didik mampu menjelaskan konsep ${data.materi} dengan tepat |
-    | 2 | Peserta didik mampu menerapkan konsep ${data.materi} dalam soal latihan |
-    | 3 | Peserta didik mampu menganalisis penerapan ${data.materi} |
-    | 4 | Peserta didik mampu menyajikan hasil pembelajaran |
+    C. Tujuan Pembelajaran
     
-    ## B. KEGIATAN PEMBELAJARAN
+    Tujuan Pembelajaran Pengetahuan
+    | No | Tujuan Pembelajaran | Indikator |
+    |----|---------------------|-----------|
+    | 1 | [Tujuan pengetahuan 1] | [Indikator] |
+    | 2 | [Tujuan pengetahuan 2] | [Indikator] |
+    | 3 | [Tujuan pengetahuan 3] | [Indikator] |
     
-    ### 1. Kegiatan Pendahuluan
-    | Waktu | Kegiatan | Metode |
-    |-------|----------|--------|
-    | 10 menit | Guru menyapa, memeriksa kehadiran, dan mengondisikan kelas | Ceramah |
-    | 10 menit | Apersepsi: mengingat kembali materi sebelumnya terkait ${data.materi} | Tanya jawab |
-    | 5 menit | Menyampaikan tujuan pembelajaran | Ekspositori |
+    Tujuan Pembelajaran Keterampilan
+    | No | Tujuan Pembelajaran | Indikator |
+    |----|---------------------|-----------|
+    | 1 | [Tujuan keterampilan 1] | [Indikator] |
+    | 2 | [Tujuan keterampilan 2] | [Indikator] |
+    | 3 | [Tujuan keterampilan 3] | [Indikator] |
     
-    ### 2. Kegiatan Inti
-    | Waktu | Kegiatan | Metode |
-    |-------|----------|--------|
-    | 20 menit | Eksplorasi konsep ${data.materi} melalui penjelasan guru | Ceramah interaktif |
-    | 25 menit | Diskusi kelompok tentang penerapan ${data.materi} | Kooperatif |
-    | 20 menit | Praktik penerapan konsep ${data.materi} | Praktikum |
-    | 10 menit | Presentasi hasil diskusi kelompok | Presentasi |
+    D. Materi Pembelajaran
     
-    ### 3. Kegiatan Penutup
-    | Waktu | Kegiatan | Metode |
-    |-------|----------|--------|
-    | 10 menit | Guru bersama siswa membuat kesimpulan | Diskusi kelas |
-    | 5 menit | Memberikan tes formatif untuk mengukur pemahaman | Tes tertulis |
-    | 5 menit | Memberikan tugas rumah dan informasi pertemuan berikutnya | Penugasan |
+    Materi Pokok
+    | Komponen | Keterangan |
+    |----------|------------|
+    | Materi | ${data.materi} |
+    | Deskripsi | [Deskripsi materi pokok] |
     
-    ## C. PENILAIAN
+    Materi Fakta
+    | No | Fakta | Deskripsi | Sumber |
+    |----|-------|----------|--------|
+    | 1 | [Fakta 1] | [Deskripsi fakta 1] | [Sumber 1] |
+    | 2 | [Fakta 2] | [Deskripsi fakta 2] | [Sumber 2] |
+    | 3 | [Fakta 3] | [Deskripsi fakta 3] | [Sumber 3] |
     
-    ### 1. Teknik Penilaian
-    | Jenis | Teknik | Instrumen |
-    |-------|--------|-----------|
-    | Sikap | Observasi | Lembar Observasi Sikap |
-    | Pengetahuan | Tes Tertulis | Soal Uraian dan Pilihan Ganda |
-    | Keterampilan | Praktik | Rubrik Penilaian Praktik |
+    Materi Konsep
+    | No | Konsep | Definisi | Contoh |
+    |----|--------|----------|--------|
+    | 1 | [Konsep 1] | [Definisi konsep 1] | [Contoh 1] |
+    | 2 | [Konsep 2] | [Definisi konsep 2] | [Contoh 2] |
+    | 3 | [Konsep 3] | [Definisi konsep 3] | [Contoh 3] |
     
-    ### 2. Kriteria Ketuntasan Minimal (KKM)
-    | Komponen | KKM |
-    |----------|-----|
-    | Pengetahuan | 75 |
-    | Keterampilan | 75 |
-    | Sikap | Baik |
+    Materi Prosedural
+    | No | Prosedur | Langkah-langkah | Aplikasi |
+    |----|----------|---------------|-----------|
+    | 1 | [Prosedur 1] | [Langkah-langkah 1] | [Aplikasi 1] |
+    | 2 | [Prosedur 2] | [Langkah-langkah 2] | [Aplikasi 2] |
+    | 3 | [Prosedur 3] | [Langkah-langkah 3] | [Aplikasi 3] |
     
-    ### 3. Remidial dan Pengayaan
-    | Kegiatan | Target |
-    |----------|--------|
-    | Remidial | Peserta didik yang belum mencapai KKM diberikan bimbingan tambahan |
-    | Pengayaan | Peserta didik yang mencapai KKM diberikan tugas pengayaan |
+    E. Kegiatan Pembelajaran
     
-    ## D. MEDIA DAN SUMBER BELAJAR
+    ${Array.from({ length: pertemuanNum }, (_, i) => {
+      // Add model-specific components
+      let modelSpecificContent = "";
+      if (data.model === "Project Based Learning") {
+        modelSpecificContent = `
+        
+        Deskripsi Proyek
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Judul Proyek | [Judul proyek ${data.materi}] |
+        | Deskripsi | [Deskripsi proyek ${data.materi}] |
+        | Tujuan | [Tujuan proyek] |
+        
+        Tahapan Proyek
+        | Tahap | Kegiatan | Waktu | Output |
+        |-------|----------|-------|--------|
+        | 1 | [Tahap 1] | [Waktu] | [Output 1] |
+        | 2 | [Tahap 2] | [Waktu] | [Output 2] |
+        | 3 | [Tahap 3] | [Waktu] | [Output 3] |
+        `;
+        if (i === pertemuanNum - 1) {
+          modelSpecificContent += `
+        
+        Presentasi
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Format | [Format presentasi] |
+        | Durasi | [Durasi presentasi] |
+        | Penilaian | [Kriteria penilaian] |
+        
+        Rubrik Proyek
+        | Aspek | Kriteria | Bobot |
+        |-------|----------|-------|
+        | Perencanaan | [Kriteria perencanaan] | 20% |
+        | Proses | [Kriteria proses] | 40% |
+        | Produk | [Kriteria produk] | 30% |
+        | Presentasi | [Kriteria presentasi] | 10% |
+        `;
+        }
+      } else if (data.model === "Problem Based Learning") {
+        modelSpecificContent = `
+        
+        Skenario Masalah
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Masalah | [Skenario masalah nyata terkait ${data.materi}] |
+        | Konteks | [Konteks masalah] |
+        | Tantangan | [Tantangan yang dihadapi] |
+        
+        Hipotesis Solusi
+        | No | Hipotesis | Alasan |
+        |----|-----------|--------|
+        | 1 | [Hipotesis 1] | [Alasan 1] |
+        | 2 | [Hipotesis 2] | [Alasan 2] |
+        `;
+        if (i === Math.floor(pertemuanNum / 2)) {
+          modelSpecificContent += `
+        
+        Evaluasi Solusi
+        | Kriteria | Penilaian | Skor |
+        |----------|-----------|-------|
+        | [Kriteria 1] | [Penilaian 1] | [Skor] |
+        | [Kriteria 2] | [Penilaian 2] | [Skor] |
+        `;
+        }
+      } else if (data.model === "Cooperative Learning") {
+        modelSpecificContent = `
+        
+        Struktur Kelompok
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Jumlah Anggota | [Jumlah anggota per kelompok] |
+        | Metode Pengelompokan | [Metode pembentukan kelompok] |
+        | Peran | [Distribusi peran dalam kelompok] |
+        
+        Peran Peserta Didik
+        | Peran | Tanggung Jawab | Kriteria |
+        |------|----------------|----------|
+        | [Peran 1] | [Tanggung jawab 1] | [Kriteria 1] |
+        | [Peran 2] | [Tanggung jawab 2] | [Kriteria 2] |
+        `;
+      } else if (data.model === "Blended Learning") {
+        modelSpecificContent = `
+        
+        ${
+          i % 2 === 0
+            ? `
+        Aktivitas Daring
+        | Kegiatan | Platform | Waktu | Tujuan |
+        |----------|----------|-------|--------|
+        | [Kegiatan 1] | [Platform 1] | [Waktu] | [Tujuan 1] |
+        | [Kegiatan 2] | [Platform 2] | [Waktu] | [Tujuan 2] |
+        `
+            : `
+        Aktivitas Luring
+        | Kegiatan | Metode | Waktu | Tujuan |
+        |----------|---------|-------|--------|
+        | [Kegiatan 1] | [Metode 1] | [Waktu] | [Tujuan 1] |
+        | [Kegiatan 2] | [Metode 2] | [Waktu] | [Tujuan 2] |
+        `
+        }
+        `;
+      } else if (data.model === "Discovery Learning") {
+        modelSpecificContent = `
+        
+        Tahapan Discovery
+        | Tahap | Kegiatan | Waktu | Tujuan |
+        |-------|----------|-------|--------|
+        | Stimulasi | [Deskripsi stimulasi] | [Waktu] | [Tujuan] |
+        | Identifikasi masalah | [Deskripsi identifikasi masalah] | [Waktu] | [Tujuan] |
+        | Pengumpulan data | [Deskripsi pengumpulan data] | [Waktu] | [Tujuan] |
+        | Verifikasi | [Deskripsi verifikasi] | [Waktu] | [Tujuan] |
+        | Generalisasi | [Deskripsi generalisasi] | [Waktu] | [Tujuan] |
+        `;
+      } else if (data.model === "Inquiry Learning") {
+        modelSpecificContent = `
+        
+        Pertanyaan Inkuiri
+        | No | Pertanyaan | Jenis | Tujuan |
+        |----|------------|-------|--------|
+        | 1 | [Pertanyaan 1] | [Jenis 1] | [Tujuan 1] |
+        | 2 | [Pertanyaan 2] | [Jenis 2] | [Tujuan 2] |
+        
+        Proses Penyelidikan
+        | Tahap | Kegiatan | Metode | Output |
+        |-------|----------|--------|--------|
+        | 1 | [Kegiatan 1] | [Metode 1] | [Output 1] |
+        | 2 | [Kegiatan 2] | [Metode 2] | [Output 2] |
+        `;
+      } else if (data.model === "Contextual Teaching and Learning (CTL)") {
+        modelSpecificContent = `
+        
+        Konteks Nyata
+        | Konteks | Relevansi | Implementasi |
+        |---------|-----------|--------------|
+        | [Konteks 1] | [Relevansi 1] | [Implementasi 1] |
+        | [Konteks 2] | [Relevansi 2] | [Implementasi 2] |
+        
+        Refleksi Kontekstual
+        | Aspek | Pertanyaan | Tujuan |
+        |-------|------------|--------|
+        | Pengalaman | [Pertanyaan 1] | [Tujuan 1] |
+        | Aplikasi | [Pertanyaan 2] | [Tujuan 2] |
+        `;
+      } else if (data.model === "Differentiated Learning") {
+        modelSpecificContent = `
+        
+        Strategi Diferensiasi
+        | Aspek | Strategi | Implementasi | Penilaian |
+        |-------|----------|--------------|-----------|
+        | Konten | [Strategi konten] | [Implementasi konten] | [Penilaian konten] |
+        | Proses | [Strategi proses] | [Implementasi proses] | [Penilaian proses] |
+        | Produk | [Strategi produk] | [Implementasi produk] | [Penilaian produk] |
+        
+        Penyesuaian Asesmen
+        | Jenis | Penyesuaian | Alat |
+        |-------|-------------|------|
+        | [Jenis 1] | [Penyesuaian 1] | [Alat 1] |
+        | [Jenis 2] | [Penyesuaian 2] | [Alat 2] |
+        `;
+      }
+
+      return `
+    Pertemuan ke-${i + 1} (${waktuPerPertemuan} menit)
     
-    ### 1. Media Pembelajaran
-    | Jenis Media | Keterangan |
-    |-------------|------------|
-    | Media Visual | Papan tulis, spidol, LCD proyektor |
-    | Media Audio | Speaker untuk penjelasan audio |
-    | Media Interaktif | Presentasi PowerPoint, video pembelajaran |
+    Pendahuluan
+    | Kegiatan | Waktu | Metode | Tujuan |
+    |----------|-------|--------|--------|
+    | [Kegiatan pendahuluan untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
     
-    ### 2. Sumber Belajar
-    | Jenis Sumber | Keterangan |
-    |--------------|------------|
-    | Buku Teks | Buku ${data.mapel} Kelas ${data.kelas} Kurikulum 2013 |
-    | Buku Referensi | Buku panduan ${data.materi} tingkat lanjut |
-    | Sumber Internet | Website pembelajaran ${data.mapel} terpercaya |
-    | Lingkungan | Objek nyata terkait ${data.materi} di sekitar |
+    Kegiatan Inti
+    | No | Kegiatan | Waktu | Metode | Tujuan |
+    |----|----------|-------|--------|--------|
+    | 1 | [Kegiatan inti 1 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+    | 2 | [Kegiatan inti 2 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+    | 3 | [Kegiatan inti 3 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+    ${modelSpecificContent}
     
-    ## E. LAMPIRAN
+    Penutup
+    | Kegiatan | Waktu | Metode | Tujuan |
+    |----------|-------|--------|--------|
+    | [Kegiatan penutup untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+    `;
+    }).join("")}
     
-    ### 1. LKS (Lembar Kerja Siswa)
-    | Komponen | Isi |
-    |----------|-----|
-    | Judul | Praktikum ${data.materi} |
-    | Tujuan | Menerapkan konsep ${data.materi} dalam praktikum |
-    | Petunjuk | Ikuti langkah-langkah praktikum dengan teliti |
-    | Soal | Jawablah pertanyaan berdasarkan hasil praktikum |
+    F. Lembar Kerja Peserta Didik (LKPD)
     
-    ### 2. Kunci Jawaban
-    | No | Jawaban |
-    |----|---------|
-    | 1 | [Jawaban soal nomor 1] |
-    | 2 | [Jawaban soal nomor 2] |
-    | 3 | [Jawaban soal nomor 3] |
-    | 4 | [Jawaban soal nomor 4] |
+    Judul LKPD
+    ${data.materi}
     
-    ### 3. Daftar Pustaka
-    | No | Sumber |
-    |----|--------|
-    | 1 | Buku ${data.mapel} Kelas ${data.kelas} Kurikulum 2013 |
-    | 2 | Panduan Pembelajaran ${data.mapel} |
-    | 3 | Jurnal Pendidikan ${data.mapel} Terkini |
+    Petunjuk Belajar
+    1. Bacalah dengan teliti petunjuk setiap kegiatan
+    2. Kerjakan secara mandiri atau dalam kelompok sesuai instruksi
+    3. Gunakan alat dan bahan yang tersedia dengan baik
+    4. Tanyakan kepada guru jika ada yang tidak kamu pahami
     
-    ---
-    *Modul ini disusun sesuai Kurikulum 2013 dan Permendikbud No. 22 Tahun 2016*
+    Tujuan Pembelajaran
+    1. [Tujuan pembelajaran 1]
+    2. [Tujuan pembelajaran 2]
+    3. [Tujuan pembelajaran 3]
+    
+    Materi Singkat
+    ${data.materi} adalah [deskripsi singkat ${data.materi}]. Konsep ini penting karena [alasan pentingnya ${data.materi}].
+    
+    Aktivitas / Langkah Kerja
+    1. [Langkah kerja 1]
+    2. [Langkah kerja 2]
+    3. [Langkah kerja 3]
+    4. [Langkah kerja 4]
+    5. [Langkah kerja 5]
+    
+    ${
+      data.jenjang === "SMK"
+        ? `
+    Job Sheet
+    
+    Alat dan Bahan
+    1. [Alat/Bahan 1]: [Jumlah]
+    2. [Alat/Bahan 2]: [Jumlah]
+    3. [Alat/Bahan 3]: [Jumlah]
+    
+    Langkah Kerja Sistematis
+    1. [Langkah kerja 1]
+    2. [Langkah kerja 2]
+    3. [Langkah kerja 3]
+    4. [Langkah kerja 4]
+    5. [Langkah kerja 5]
+    
+    Keselamatan Kerja (K3)
+    1. [Aspek keselamatan 1]: [Keterangan]
+    2. [Aspek keselamatan 2]: [Keterangan]
+    3. [Aspek keselamatan 3]: [Keterangan]
+    `
+        : ""
+    }
+    
+    Tugas / Soal / Studi Kasus
+    1. [Tugas/Soal/Studi Kasus 1]
+    2. [Tugas/Soal/Studi Kasus 2]
+    3. [Tugas/Soal/Studi Kasus 3]
+    
+    Komponen Penilaian
+    1. Sikap: [Kriteria penilaian sikap]
+    2. Pengetahuan: [Kriteria penilaian pengetahuan]
+    3. Keterampilan: [Kriteria penilaian keterampilan]
+    
+    G. Penilaian
+    
+    Penilaian Sikap
+    | Aspek | Indikator | Teknik | Instrumen |
+    |-------|----------|--------|-----------|
+    | [Aspek 1] | [Indikator 1] | [Teknik 1] | [Instrumen 1] |
+    | [Aspek 2] | [Indikator 2] | [Teknik 2] | [Instrumen 2] |
+    
+    Penilaian Pengetahuan
+    | Jenis | Teknik | Waktu | Bentuk | Kriteria |
+    |-------|--------|-------|--------|----------|
+    | [Jenis 1] | [Teknik 1] | [Waktu] | [Bentuk 1] | [Kriteria 1] |
+    | [Jenis 2] | [Teknik 2] | [Waktu] | [Bentuk 2] | [Kriteria 2] |
+    
+    Penilaian Keterampilan
+    | Jenis | Teknik | Waktu | Bentuk | Kriteria |
+    |-------|--------|-------|--------|----------|
+    | [Jenis 1] | [Teknik 1] | [Waktu] | [Bentuk 1] | [Kriteria 1] |
+    | [Jenis 2] | [Teknik 2] | [Waktu] | [Bentuk 2] | [Kriteria 2] |
+    
+    Instrumen & Rubrik
+    | Jenis | Nama Instrumen | Fungsi | Waktu |
+    |-------|----------------|--------|-------|
+    | [Jenis 1] | [Nama 1] | [Fungsi 1] | [Waktu] |
+    | [Jenis 2] | [Nama 2] | [Fungsi 2] | [Waktu] |
+    
+    H. Media dan Sumber Belajar
+    
+    Media Pembelajaran
+    | No | Media | Jenis | Fungsi | Penggunaan |
+    |----|-------|-------|--------|------------|
+    | 1 | [Media 1] | [Jenis 1] | [Fungsi 1] | [Penggunaan 1] |
+    | 2 | [Media 2] | [Jenis 2] | [Fungsi 2] | [Penggunaan 2] |
+    | 3 | [Media 3] | [Jenis 3] | [Fungsi 3] | [Penggunaan 3] |
+    
+    Sumber Belajar
+    | No | Sumber | Jenis | Relevansi | Akses |
+    |----|--------|-------|----------|-------|
+    | 1 | [Sumber 1] | [Jenis 1] | [Relevansi 1] | [Akses 1] |
+    | 2 | [Sumber 2] | [Jenis 2] | [Relevansi 2] | [Akses 2] |
+    | 3 | [Sumber 3] | [Jenis 3] | [Relevansi 3] | [Akses 3] |
+    
+    I. Refleksi & Tindak Lanjut
+    
+    Refleksi Peserta Didik
+    | No | Pertanyaan | Tujuan |
+    |----|------------|--------|
+    | 1 | [Pertanyaan refleksi 1] | [Tujuan 1] |
+    | 2 | [Pertanyaan refleksi 2] | [Tujuan 2] |
+    | 3 | [Pertanyaan refleksi 3] | [Tujuan 3] |
+    
+    Refleksi Guru
+    | No | Pertanyaan | Fokus |
+    |----|------------|-------|
+    | 1 | [Pertanyaan refleksi guru 1] | [Fokus 1] |
+    | 2 | [Pertanyaan refleksi guru 2] | [Fokus 2] |
+    | 3 | [Pertanyaan refleksi guru 3] | [Fokus 3] |
+    
+    Tindak Lanjut
+    | Aspek | Kegiatan | Waktu | Penanggung Jawab |
+    |-------|----------|-------|----------------|
+    | [Aspek 1] | [Kegiatan 1] | [Waktu] | [Penanggung jawab 1] |
+    | [Aspek 2] | [Kegiatan 2] | [Waktu] | [Penanggung jawab 2] |
+    
+    Daftar Pustaka
+    
+    | No | Sumber Pustaka | Pengarang | Tahun | Penerbit | ISBN |
+    |----|---------------|-----------|-------|---------|------|
+    | 1 | [Judul Buku 1] | [Pengarang 1] | [Tahun 1] | [Penerbit 1] | [ISBN 1] |
+    | 2 | [Judul Buku 2] | [Pengarang 2] | [Tahun 2] | [Penerbit 2] | [ISBN 2] |
+    | 3 | [Judul Buku 3] | [Pengarang 3] | [Tahun 3] | [Penerbit 3] | [ISBN 3] |
+    
+    Glosarium
+    
+    | No | Istilah | Definisi | Contoh |
+    |----|---------|----------|--------|
+    | 1 | [Istilah 1] | [Definisi istilah 1] | [Contoh 1] |
+    | 2 | [Istilah 2] | [Definisi istilah 2] | [Contoh 2] |
+    | 3 | [Istilah 3] | [Definisi istilah 3] | [Contoh 3] |
     
     **INSTRUKSI KRUSIAL:**
-    1. JUDUL MODUL HARUS PERSIS: "${data.judul}" - TULIS DI BAGIAN PALING ATAS
-    2. GUNAKAN KELAS: "${data.kelas}" DI SEMUA TEMPAT YANG MEMERLUKAN KELAS
+    1. JUDUL MODUL HARUS: "${data.materi}" - TULIS DI BAGIAN PALING ATAS
+    2. PADA BAGIAN "Kelas / Semester", gunakan format: ${data.kelas} / ${data.semester}
     3. GUNAKAN MATERI: "${data.materi}" DI SEMUA BAGIAN YANG RELEVAN
     4. GUNAKAN MATA PELAJARAN: "${data.mapel}" DI SEMUA BAGIAN YANG RELEVAN
-    5. JANGAN GUNAKAN TEKS "[JUDUL MODUL]" - GANTI DENGAN NILAI YANG TELAH DIBERIKAN
-    6. Pastikan semua tabel memiliki format markdown yang benar dengan header |---|---|`;
+    5. JUMLAH PERTEMUAN HARUS SESUAI: ${data.jumlahPertemuan} PERTEMUAN
+    6. ALOKASI WAKTU HARUS: ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit)
+    7. Pastikan struktur lengkap sesuai dengan Kurikulum Berbasis Kompetensi/K13 (A-H)
+    8. SEMUA BAGIAN HARUS DALAM FORMAT TABEL KECUALI LKPD
+    9. LKPD TIDAK BOLEH MENGGUNAKAN TABEL, HARUS TERSUSUN RAPI`;
+
+    // Check if API key is valid
+    if (
+      !process.env.GROQ_API_KEY ||
+      process.env.GROQ_API_KEY === "your_api_key_here"
+    ) {
+      console.error("❌ GROQ_API_KEY tidak valid atau tidak dikonfigurasi");
+      return generateFallbackModule(directPrompt, kurikulum, data);
+    }
 
     // Gunakan model yang masih didukung
     const completion = await groq.chat.completions.create({
@@ -537,176 +1112,197 @@ export async function generateTeachingModule(
     console.log("🔍 Format output:", result.substring(0, 100));
 
     // Lakukan post-processing yang lebih agresif untuk memastikan semua placeholder terganti
-    result = replacePlaceholders(result);
+    result = result
+      .replace(/\[JUDUL MODUL\]/g, data.materi) // Menggunakan data.materi sebagai judul
+      .replace(/\[fase\]/g, data.fase)
+      .replace(/\[kelas\]/g, data.kelas)
+      .replace(/\[materi\]/g, data.materi)
+      .replace(/\[mapel\]/g, data.mapel)
+      .replace(/\[jenjang\]/g, data.jenjang)
+      .replace(/\[jumlahPertemuan\]/g, data.jumlahPertemuan)
+      .replace(/\[alokasiWaktu\]/g, data.alokasiWaktu)
+      .replace(/\[model\]/g, data.model)
+      .replace(/\[namaGuru\]/g, data.namaGuru)
+      .replace(/\[institusi\]/g, data.institusi)
+      .replace(/\[tahunAjaran\]/g, data.tahunAjaran)
+      .replace(/\[semester\]/g, data.semester);
 
     // Tambahkan pemeriksaan khusus untuk judul
     if (result.includes("[JUDUL MODUL]")) {
       console.warn(
         "⚠️ [JUDUL MODUL] masih ditemukan setelah post-processing, lakukan penggantian final",
       );
-      result = result.replace(/\[JUDUL MODUL\]/g, data.judul);
+      result = result.replace(/\[JUDUL MODUL\]/g, data.materi);
     }
 
     console.log("📄 Setelah post-processing:", result.substring(0, 200));
 
     if (!result || result.trim().length < 1000) {
       console.warn("⚠️ Hasil terlalu pendek, gunakan fallback");
-      return generateFallbackModule(directPrompt, kurikulum);
+      return generateFallbackModule(directPrompt, kurikulum, data);
     }
 
     // Pastikan output sudah dalam format yang benar
-    if (!result.includes("# ") || !result.includes("|")) {
+    if (!result.includes("MODUL AJAR")) {
       console.warn("⚠️ Format tidak sesuai, coba lagi");
-      return await tryAlternativeModel(directPrompt, kurikulum);
+      return await tryAlternativeModel(directPrompt, kurikulum, data);
     }
 
     return result;
   } catch (error: any) {
     console.error("❌ Error Groq API:", error.message);
-    return generateFallbackModule(prompt, kurikulum);
+
+    // Extract data for fallback
+    const extractData = (text: string) => {
+      // Extract judul
+      const judulMatch = text.match(/Materi Pokok:\s*([^\n]+)/i);
+      const judul = judulMatch ? judulMatch[1].trim() : "Judul Modul";
+
+      // Extract fase
+      const faseMatch = text.match(/Fase:\s*([^\n]+)/i);
+      let fase = faseMatch ? faseMatch[1].trim() : "Fase D";
+
+      // Extract kelas
+      const kelasMatch = text.match(/Kelas:\s*([^\n]+)/i);
+      const kelas = kelasMatch ? kelasMatch[1].trim() : "Kelas";
+
+      // Extract materi
+      const materiMatch = text.match(/Materi Pokok:\s*([^\n]+)/i);
+      const materi = materiMatch ? materiMatch[1].trim() : "Materi Pokok";
+
+      // Extract mapel
+      const mapelMatch = text.match(/Mata Pelajaran:\s*([^\n]+)/i);
+      const mapel = mapelMatch ? mapelMatch[1].trim() : "Mata Pelajaran";
+
+      // Extract jenjang
+      const jenjangMatch = text.match(/Jenjang:\s*([^\n]+)/i);
+      const jenjang = jenjangMatch ? jenjangMatch[1].trim() : "SMP";
+
+      // Extract jumlah pertemuan
+      const pertemuanMatch = text.match(/Jumlah Pertemuan:\s*([^\n]+)/i);
+      const jumlahPertemuan = pertemuanMatch ? pertemuanMatch[1].trim() : "2";
+
+      // Extract alokasi waktu
+      const alokasiWaktuMatch = text.match(/Alokasi Waktu:\s*([^\n]+)/i);
+      const alokasiWaktu = alokasiWaktuMatch
+        ? alokasiWaktuMatch[1].trim()
+        : "2 pertemuan (total 180 menit)";
+
+      // Extract model pembelajaran
+      const modelMatch = text.match(/Model Pembelajaran:\s*([^\n]+)/i);
+      const model = modelMatch
+        ? modelMatch[1].trim()
+        : "Problem Based Learning";
+
+      // Extract nama guru
+      const namaGuruMatch = text.match(/Nama Penyusun:\s*([^\n]+)/i);
+      const namaGuru = namaGuruMatch ? namaGuruMatch[1].trim() : "Guru";
+
+      // Extract institusi
+      const institusiMatch = text.match(/Institusi:\s*([^\n]+)/i);
+      const institusi = institusiMatch
+        ? institusiMatch[1].trim()
+        : "Satuan Pendidikan";
+
+      // Extract tahun ajaran
+      const tahunAjaranMatch = text.match(/Tahun Ajaran:\s*([^\n]+)/i);
+      const tahunAjaran = tahunAjaranMatch
+        ? tahunAjaranMatch[1].trim()
+        : "2025/2026";
+
+      // Extract semester
+      const semesterMatch = text.match(/Semester:\s*([^\n]+)/i);
+      const semester = semesterMatch ? semesterMatch[1].trim() : "Ganjil";
+
+      return {
+        judul,
+        fase,
+        kelas,
+        materi,
+        mapel,
+        jenjang,
+        jumlahPertemuan,
+        alokasiWaktu,
+        model,
+        namaGuru,
+        institusi,
+        tahunAjaran,
+        semester,
+      };
+    };
+
+    const data = extractData(prompt);
+    return generateFallbackModule(prompt, kurikulum, data);
   }
 }
 
 async function tryAlternativeModel(
   prompt: string,
   kurikulum: string,
+  data: any,
 ): Promise<string> {
   console.log("🔄 Mencoba model alternatif: mixtral-8x7b-32768");
 
   try {
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY!,
-    });
-
-    // Extract data for replacement
-    const extractData = (text: string) => {
-      const getValue = (key: string): string => {
-        const patterns = [
-          new RegExp(`- ${key}: ([^\\n]+)`, "i"),
-          new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, "i"),
-          new RegExp(`${key}: ([^\\n]+)`, "i"),
-        ];
-
-        for (const pattern of patterns) {
-          const match = text.match(pattern);
-          if (match) return match[1].trim();
-        }
-        return "";
-      };
-
-      // Khusus untuk fase, kita perlu membersihkan dari teks tambahan
-      let faseValue = getValue("Fase") || "";
-      faseValue = faseValue
-        .replace(/\s*\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)\s*/g, "")
-        .trim();
-
-      return {
-        judul: getValue("JUDUL MODUL") || getValue("judul") || "",
-        fase: faseValue,
-        kelas: getValue("Kelas") || "",
-        materi: getValue("Materi Pokok") || getValue("materi") || "",
-        mapel: getValue("Mata Pelajaran") || getValue("mapel") || "",
-      };
-    };
-
-    const data = extractData(prompt);
-
-    // Fungsi untuk mengganti semua placeholder secara konsisten
-    const replacePlaceholders = (text: string): string => {
-      // Ganti judul modul dengan berbagai pola - urutan dari yang paling spesifik ke umum
-      let result = text
-        // Pola 1: [JUDUL MODUL] standalone
-        .replace(/\[JUDUL MODUL\]/g, data.judul)
-
-        // Pola 2: JUDUL MODUL: [JUDUL MODUL]
-        .replace(
-          /JUDUL MODUL:\s*\[JUDUL MODUL\]/g,
-          `JUDUL MODUL: ${data.judul}`,
-        )
-
-        // Pola 3: # [JUDUL MODUL]
-        .replace(/^#\s*\[JUDUL MODUL\]/gm, `# ${data.judul}`)
-
-        // Pola 4: ## [JUDUL MODUL]
-        .replace(/^##\s*\[JUDUL MODUL\]/gm, `## ${data.judul}`)
-
-        // Pola 5: # MODUL AJAR... diikuti # [JUDUL MODUL]
-        .replace(
-          /#\s*MODUL AJAR[^\n]*\n#\s*\[JUDUL MODUL\]/gs,
-          `# ${data.judul}`,
-        )
-
-        // Pola 6: Judul: [JUDUL MODUL]
-        .replace(/Judul:\s*\[JUDUL MODUL\]/g, `Judul: ${data.judul}`)
-
-        // Pola 7: Judul Modul: [JUDUL MODUL]
-        .replace(
-          /Judul Modul:\s*\[JUDUL MODUL\]/g,
-          `Judul Modul: ${data.judul}`,
-        )
-
-        // Pola 8: Dalam konteks tabel - | [JUDUL MODUL] |
-        .replace(/\|\s*\[JUDUL MODUL\]\s*\|/g, `| ${data.judul} |`)
-
-        // Pola 9: [JUDUL MODUL] di tengah kalimat
-        .replace(/(\s)\[JUDUL MODUL\](\s)/g, `$1${data.judul}$2`)
-
-        // Ganti fase dengan berbagai pola
-        .replace(/\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)/g, data.fase)
-        .replace(/GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS/g, data.fase)
-        .replace(
-          /Fase.*\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)/g,
-          `Fase ${data.fase}`,
-        )
-        .replace(/\[fase\]/g, data.fase)
-        .replace(/Fase \[fase\]/g, `Fase ${data.fase}`)
-
-        // Ganti placeholder lainnya
-        .replace(/\[materi\]/g, data.materi)
-        .replace(/\[mapel\]/g, data.mapel)
-        .replace(/\[kelas\]/g, data.kelas);
-
-      // Lakukan pemeriksaan ulang untuk memastikan tidak ada [JUDUL MODUL] yang tersisa
-      if (result.includes("[JUDUL MODUL]")) {
-        console.warn(
-          "⚠️ Masih ada [JUDUL MODUL] yang tersisa, lakukan penggantian paksa",
-        );
-        result = result.replace(/\[JUDUL MODUL\]/g, data.judul);
-      }
-
-      return result;
-    };
-
-    // Create a more explicit prompt with direct replacements
-    const directPrompt = replacePlaceholders(prompt);
+    // Calculate total duration
+    const pertemuanNum = parseInt(data.jumlahPertemuan) || 2;
+    const waktuPerPertemuan =
+      parseInt(data.alokasiWaktu.match(/(\d+)/)?.[1] || "90") || 90;
+    const totalWaktu = pertemuanNum * waktuPerPertemuan;
 
     const systemPrompt =
       kurikulum === "Kurikulum Merdeka"
-        ? `Buatkan MODUL AJAR KURIKULUM MERDEKA dalam format teks lengkap dengan SEMUA KOMPONEN DALAM BENTUK TABEL.
+        ? `Buatkan MODUL AJAR KURIKULUM MERDEKA dengan struktur lengkap sesuai peraturan di Indonesia.
       Gunakan semua data dari pengguna. Format harus termasuk:
-      1. # ${data.judul}
-      2. ## A. INFORMASI UMUM (semua komponen dalam tabel)
-      3. ## B. KOMPONEN INTI (semua komponen dalam tabel)
-      4. ## C. LAMPIRAN (semua komponen dalam tabel)
+      1. MODUL AJAR ${data.mapel}
+      2. "${data.materi}"
+      3. A. Informasi Umum (semua komponen dalam tabel)
+      4. B. Capaian Pembelajaran (semua komponen dalam tabel)
+      5. C. Profil Pelajar Pancasila (semua komponen dalam tabel)
+      6. D. Materi Pembelajaran (semua komponen dalam tabel)
+      7. E. Rencana Pembelajaran per Pertemuan (semua komponen dalam tabel)
+      8. F. Lembar Kerja Peserta Didik (LKPD) (tanpa tabel, teks biasa)
+      9. G. Asesmen Pembelajaran (semua komponen dalam tabel)
+      10. H. Media dan Sumber Belajar (semua komponen dalam tabel)
+      11. I. Diferensiasi Pembelajaran (semua komponen dalam tabel)
+      12. J. Refleksi Pembelajaran (semua komponen dalam tabel)
+      13. Daftar Pustaka (dalam bentuk tabel)
+      14. Glosarium (dalam bentuk tabel)
       
       PENTING: 
-      - JUDUL MODUL HARUS: "${data.judul}"
-      - Pada bagian "Kelas / Fase", gunakan format: ${data.kelas} / ${data.fase}
-      - Pada bagian "Fase" di Capaian Pembelajaran, gunakan "${data.fase}"
+      - JUDUL MODUL HARUS: "${data.materi}"
+      - Pada bagian "Jenjang / Kelas / Fase", gunakan format: ${data.jenjang} / ${data.kelas} / ${data.fase}
+      - Pada bagian "Semester / Tahun Pelajaran", gunakan format: ${data.semester} / ${data.tahunAjaran}
       - GUNAKAN MATERI: "${data.materi}" DI SEMUA BAGIAN YANG RELEVAN
-      - JANGAN GUNAKAN TEKS "(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS)"`
-        : `Buatkan MODUL AJAR KURIKULUM 2013 dalam format teks lengkap dengan SEMUA KOMPONEN DALAM BENTUK TABEL.
+      - JUMLAH PERTEMUAN HARUS SESUAI: ${data.jumlahPertemuan} PERTEMUAN
+      - ALOKASI WAKTU HARUS: ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit)
+      - Pastikan struktur lengkap sesuai dengan Kurikulum Merdeka (A-J)
+      - SEMUA BAGIAN HARUS DALAM FORMAT TABEL KECUALI LKPD
+      - LKPD tidak menggunakan tabel tetap tersusun rapi`
+        : `Buatkan MODUL AJAR KURIKULUM BERBASIS KOMPETENSI/K13 dengan struktur lengkap sesuai peraturan di Indonesia.
       Gunakan semua data dari pengguna. Format harus termasuk:
-      1. # ${data.judul}
-      2. ## A. IDENTITAS (semua komponen dalam tabel)
-      3. ## B. KOMPETENSI INTI DAN KOMPETENSI DASAR (semua komponen dalam tabel)
-      4. ## C. KEGIATAN PEMBELAJARAN (semua komponen dalam tabel)
-      5. ## D. PENILAIAN (semua komponen dalam tabel)
-      6. ## E. MEDIA DAN SUMBER BELAJAR (semua komponen dalam tabel)
+      1. MODUL AJAR ${data.mapel}
+      2. "${data.materi}"
+      3. A. Identitas Modul (semua komponen dalam tabel)
+      4. B. Kompetensi (semua komponen dalam tabel)
+      5. C. Tujuan Pembelajaran (semua komponen dalam tabel)
+      6. D. Materi Pembelajaran (semua komponen dalam tabel)
+      7. E. Kegiatan Pembelajaran (semua komponen dalam tabel)
+      8. F. Penilaian (semua komponen dalam tabel)
+      9. G. Media dan Sumber Belajar (semua komponen dalam tabel)
+      10. H. Refleksi & Tindak Lanjut (semua komponen dalam tabel)
+      11. Daftar Pustaka (dalam bentuk tabel)
+      12. Glosarium (dalam bentuk tabel)
       
       PENTING: 
-      - JUDUL MODUL HARUS: "${data.judul}"
-      - GUNAKAN MATERI: "${data.materi}" DI SEMUA BAGIAN YANG RELEVAN`;
+      - JUDUL MODUL HARUS: "${data.materi}"
+      - Pada bagian "Kelas / Semester", gunakan format: ${data.kelas} / ${data.semester}
+      - GUNAKAN MATERI: "${data.materi}" DI SEMUA BAGIAN YANG RELEVAN
+      - JUMLAH PERTEMUAN HARUS SESUAI: ${data.jumlahPertemuan} PERTEMUAN
+      - ALOKASI WAKTU HARUS: ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit)
+      - Pastikan struktur lengkap sesuai dengan Kurikulum Berbasis Kompetensi/K13 (A-H)
+      - SEMUA BAGIAN HARUS DALAM FORMAT TABEL KECUALI LKPD
+      - LKPD tidak menggunakan tabel tetap tersusun rapi`;
 
     const completion = await groq.chat.completions.create({
       model: "mixtral-8x7b-32768",
@@ -717,7 +1313,7 @@ async function tryAlternativeModel(
         },
         {
           role: "user",
-          content: directPrompt,
+          content: prompt,
         },
       ],
       temperature: 0.5, // Lower temperature for more consistent output
@@ -728,388 +1324,755 @@ async function tryAlternativeModel(
     let result = completion.choices[0]?.message?.content ?? "";
 
     // Lakukan post-processing yang lebih agresif
-    result = replacePlaceholders(result);
+    result = result
+      .replace(/\[JUDUL MODUL\]/g, data.materi) // Menggunakan data.materi sebagai judul
+      .replace(/\[fase\]/g, data.fase)
+      .replace(/\[kelas\]/g, data.kelas)
+      .replace(/\[materi\]/g, data.materi)
+      .replace(/\[mapel\]/g, data.mapel)
+      .replace(/\[jenjang\]/g, data.jenjang)
+      .replace(/\[jumlahPertemuan\]/g, data.jumlahPertemuan)
+      .replace(/\[alokasiWaktu\]/g, data.alokasiWaktu)
+      .replace(/\[model\]/g, data.model)
+      .replace(/\[namaGuru\]/g, data.namaGuru)
+      .replace(/\[institusi\]/g, data.institusi)
+      .replace(/\[tahunAjaran\]/g, data.tahunAjaran)
+      .replace(/\[semester\]/g, data.semester);
 
     // Tambahkan pemeriksaan khusus untuk judul
     if (result.includes("[JUDUL MODUL]")) {
       console.warn(
         "⚠️ [JUDUL MODUL] masih ditemukan di model alternatif, lakukan penggantian final",
       );
-      result = result.replace(/\[JUDUL MODUL\]/g, data.judul);
+      result = result.replace(/\[JUDUL MODUL\]/g, data.materi);
     }
 
-    if (result && result.length > 1000 && result.includes("|")) {
+    if (result && result.length > 1000 && result.includes("MODUL AJAR")) {
       return result;
     }
 
-    return generateFallbackModule(directPrompt, kurikulum);
+    return generateFallbackModule(prompt, kurikulum, data);
   } catch (error: any) {
     console.error("❌ Model alternatif juga gagal:", error.message);
-    return generateFallbackModule(prompt, kurikulum);
+    return generateFallbackModule(prompt, kurikulum, data);
   }
 }
 
-function generateFallbackModule(prompt: string, kurikulum: string): string {
+function generateFallbackModule(
+  prompt: string,
+  kurikulum: string,
+  data: any,
+): string {
   console.log("📝 Membuat modul fallback untuk kurikulum:", kurikulum);
 
-  // Extract info from prompt
-  const getValue = (text: string, key: string): string => {
-    const regex = new RegExp(`- ${key}: ([^\\n]+)`, "i");
-    const match = text.match(regex);
-    if (match) return match[1].trim();
-
-    const regex2 = new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, "i");
-    const match2 = text.match(regex2);
-    return match2 ? match2[1] : `[${key}]`;
-  };
-
-  // Khusus untuk fase, kita perlu membersihkan dari teks tambahan
-  let faseValue = getValue(prompt, "Fase") || "Fase D";
-  faseValue = faseValue
-    .replace(/\s*\(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS\)\s*/g, "")
-    .trim();
-
-  const judul =
-    getValue(prompt, "JUDUL MODUL") ||
-    getValue(prompt, "judul") ||
-    "Judul Modul";
-  const namaGuru = getValue(prompt, "Nama Penyusun") || "Guru";
-  const institusi =
-    getValue(prompt, "Satuan Pendidikan") || "Satuan Pendidikan";
-  const mapel = getValue(prompt, "Mata Pelajaran") || "Mata Pelajaran";
-  const kelas = getValue(prompt, "Kelas") || "Kelas";
-  const fase = faseValue;
-  const materi = getValue(prompt, "Materi Pokok") || "Materi Pokok";
-  const tahunPelajaran = getValue(prompt, "Tahun Pelajaran") || "2025/2026";
-  const semester = getValue(prompt, "Semester") || "Ganjil";
-  const durasi = getValue(prompt, "Alokasi Waktu") || "2 JP (90 menit)";
-  const model =
-    getValue(prompt, "Model Pembelajaran") || "Problem Based Learning";
+  // Calculate total duration
+  const pertemuanNum = parseInt(data.jumlahPertemuan) || 2;
+  const waktuPerPertemuan =
+    parseInt(data.alokasiWaktu.match(/(\d+)/)?.[1] || "90") || 90;
+  const totalWaktu = pertemuanNum * waktuPerPertemuan;
 
   if (kurikulum === "Kurikulum Merdeka") {
     return `
-# ${judul}
+MODUL AJAR ${data.mapel}
+"${data.materi}"
 
-## A. INFORMASI UMUM
+A. Informasi Umum
 
-### 1. Identitas Modul
-| Komponen | Isi |
-|----------|-----|
-| Satuan Pendidikan | ${institusi} |
-| Mata Pelajaran | ${mapel} |
-| Kelas / Fase | ${kelas} / ${fase} |
-| Semester | ${semester} |
-| Tahun Pelajaran | ${tahunPelajaran} |
-| Alokasi Waktu | ${durasi} |
-| Penyusun | ${namaGuru} |
+| Komponen | Keterangan |
+|----------|------------|
+| Satuan Pendidikan | ${data.institusi} |
+| Mata Pelajaran | ${data.mapel} |
+| Jenjang / Kelas / Fase | ${data.jenjang} / ${data.kelas} / ${data.fase} |
+| Semester / Tahun Pelajaran | ${data.semester} / ${data.tahunAjaran} |
+| Kurikulum | Kurikulum Merdeka |
+| Alokasi Waktu | ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit) |
+| Model / Metode Pembelajaran | ${data.model} |
+| Karakteristik Peserta Didik | Peserta didik pada fase ${data.fase} umumnya memiliki karakteristik [deskripsi karakteristik peserta didik sesuai fase]. |
+| Dasar Hukum | Sesuai kebijakan Kurikulum Merdeka yang berlaku |
 
-### 2. Kompetensi Awal
-| Kompetensi Awal | Deskripsi |
-|-----------------|-----------|
-| Pengetahuan Prasyarat | Peserta didik telah memahami konsep dasar terkait ${materi} |
-| Keterampilan Prasyarat | Peserta didik mampu melakukan operasi dasar yang relevan dengan ${materi} |
-| Sikap Prasyarat | Peserta didik menunjukkan sikap kritis dan rasa ingin tahu |
+B. Capaian Pembelajaran
 
-### 3. Profil Pelajar Pancasila
-| Dimensi | Deskripsi Pengembangan |
-|---------|------------------------|
-| Bernalar Kritis | Mengembangkan kemampuan berpikir logis dan sistematis dalam memecahkan masalah ${materi} |
-| Kreatif | Mendorong peserta didik untuk menemukan solusi baru dan inovatif terkait ${materi} |
-| Bergotong Royong | Membangun kemampuan kolaborasi dalam diskusi dan proyek kelompok |
+Capaian Pembelajaran (CP)
+[CP sesuai dengan fase dan mata pelajaran]
 
-### 4. Sarana dan Prasarana
-| Jenis Sarana | Keterangan |
-|--------------|------------|
-| Media Pembelajaran | LCD Proyektor, Presentasi Digital, Video Pembelajaran |
-| Alat Pembelajaran | Buku Teks ${mapel}, LKPD, Alat Peraga |
-| Sumber Belajar | Modul Ajar, Buku Referensi, Sumber Online Terpercaya |
-| Lingkungan Belajar | Ruang kelas yang kondusif, Laboratorium (jika diperlukan) |
-
-### 5. Target Peserta Didik
-| Karakteristik | Deskripsi |
-|---------------|-----------|
-| Jenis Peserta Didik | Reguler |
-| Jumlah Peserta Didik | 30-35 siswa |
-| Kebutuhan Khusus | Tidak ada |
-
-### 6. Model Pembelajaran
-| Komponen | Isi |
-|----------|-----|
-| Model Utama | ${model} |
-| Pendekatan | Saintifik |
-| Strategi | Eksplorasi, Elaborasi, Konfirmasi |
-| Metode | Diskusi Kelompok, Demonstrasi, Praktikum |
-| Teknik | Tanya Jawab, Pemberian Tugas, Penugasan Kelompok |
-
-## B. KOMPONEN INTI
-
-### 7. Capaian Pembelajaran (CP)
-| Elemen | Capaian Pembelajaran |
-|--------|---------------------|
-| Fase | ${fase} |
-| Elemen | Bilangan dan Operasi Hitung |
-| CP Pengetahuan | Memahami konsep ${materi} dan penerapannya |
-| CP Keterampilan | Menerapkan konsep ${materi} dalam pemecahan masalah |
-
-### 8. Tujuan Pembelajaran (TP)
+Tujuan Pembelajaran (TP)
 | No | Tujuan Pembelajaran |
 |----|---------------------|
-| 1 | Peserta didik mampu menjelaskan konsep dasar ${materi} dengan tepat |
-| 2 | Peserta didik mampu menerapkan rumus ${materi} dalam soal latihan |
-| 3 | Peserta didik mampu menganalisis penerapan ${materi} dalam kehidupan sehari-hari |
-| 4 | Peserta didik mampu menyelesaikan masalah terkait ${materi} dengan langkah yang sistematis |
-| 5 | Peserta didik mampu mengkomunikasikan hasil pemecahan masalah ${materi} dengan jelas |
+| 1 | Peserta didik mampu menjelaskan konsep dasar ${data.materi} dengan tepat. |
+| 2 | Peserta didik mampu menerapkan konsep ${data.materi} dalam konteks nyata. |
+| 3 | Peserta didik mampu menganalisis penerapan ${data.materi} dalam berbagai situasi. |
+| 4 | Peserta didik mampu mengevaluasi efektivitas penerapan ${data.materi}. |
+| 5 | Peserta didik mampu membuat kreasi berdasarkan pemahaman ${data.materi}. |
 
-### 9. Pemahaman Bermakna
-| Aspek | Pemahaman Bermakna |
-|--------|-------------------|
-| Konsep | ${materi} merupakan konsep fundamental dalam ${mapel} yang menjadi dasar untuk pembelajaran lebih lanjut |
-| Relevansi | Konsep ${materi} sangat relevan dengan kehidupan sehari-hari, terutama dalam konteks [konteks relevan] |
-| Aplikasi | Pemahaman ${materi} memungkinkan peserta didik untuk memecahkan masalah nyata dalam berbagai situasi |
+Pemetaan TP ke Pertemuan
+| TP | Pertemuan 1 | Pertemuan 2 | ${pertemuanNum > 2 ? "Pertemuan 3" : ""} ${pertemuanNum > 3 ? "Pertemuan 4" : ""} ${pertemuanNum > 4 ? "Pertemuan 5" : ""} ${pertemuanNum > 5 ? "Pertemuan 6" : ""} ${pertemuanNum > 6 ? "Pertemuan 7" : ""} ${pertemuanNum > 7 ? "Pertemuan 8" : ""} |
+|----|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| TP 1 | ✓ | | | | | | | |
+| TP 2 | ✓ | | | | | | | |
+| TP 3 | | ✓ | | | | | | |
+| TP 4 | | ✓ | | | | | | |
+| TP 5 | | | ✓ | | | | | |
 
-### 10. Pertanyaan Pemantik
-| No | Pertanyaan Pemantik |
-|----|-------------------|
-| 1 | Mengapa kita perlu mempelajari konsep ${materi}? |
-| 2 | Di mana kita bisa menemukan penerapan ${materi} dalam kehidupan sehari-hari? |
-| 3 | Bagaimana cara menentukan [aspek penting dari materi] jika diketahui [data terkait]? |
-| 4 | Apa yang terjadi jika kita menerapkan [konsep] secara tidak tepat? |
-| 5 | Bagaimana cara menghubungkan konsep ${materi} dengan pembelajaran sebelumnya? |
+C. Profil Pelajar Pancasila
 
-### 11. Kegiatan Pembelajaran
+Dimensi yang dikembangkan
+| No | Dimensi Profil Pelajar Pancasila |
+|----|--------------------------------|
+ ${data.skl.map((skl: string, i: number) => `| ${i + 1} | ${skl} |`).join("\n ")}
 
-#### a. Pendahuluan
-| Waktu | Kegiatan | Tujuan |
-|-------|----------|--------|
-| 5 menit | Guru membuka pembelajaran dengan salam dan doa | Menciptakan suasana pembelajaran yang kondusif |
-| 5 menit | Apersepsi melalui tanya jawab tentang pengalaman siswa terkait ${materi} | Mengaktifkan pengetahuan awal siswa |
-| 5 menit | Penyampaian tujuan pembelajaran dan kegiatan yang akan dilakukan | Memberikan gambaran jelas tentang pembelajaran |
+Elemen & Sub-elemen
+| Elemen | Sub-elemen | Keterangan |
+|--------|-------------|------------|
+| [Elemen 1] | [Sub-elemen 1.1] | [Keterangan] |
+| [Elemen 1] | [Sub-elemen 1.2] | [Keterangan] |
+| [Elemen 2] | [Sub-elemen 2.1] | [Keterangan] |
 
-#### b. Kegiatan Inti
-| Waktu | Kegiatan | Tujuan |
-|-------|----------|--------|
-| 15 menit | Eksplorasi konsep ${materi} melalui sumber belajar yang disediakan | Peserta didik memahami konsep dasar ${materi} |
-| 20 menit | Diskusi kelompok untuk menganalisis penerapan ${materi} dalam kasus nyata | Peserta didik mengembangkan pemahaman konsep melalui kolaborasi |
-| 15 menit | Presentasi hasil diskusi dan tanya jawab | Peserta didik mengkomunikasikan pemahaman dan memperdalam konsep |
-| 10 menit | Praktik penerapan konsep ${materi} melalui LKPD | Peserta didik melatih keterampilan penerapan konsep |
+Keterkaitan dengan pembelajaran
+| Aspek | Keterkaitan |
+|-------|-------------|
+| Dimensi | [Deskripsi keterkaitan Profil Pelajar Pancasila dengan pembelajaran ${data.materi}] |
+| Implementasi | [Cara mengimplementasikan dimensi dalam pembelajaran] |
 
-#### c. Penutup
-| Waktu | Kegiatan | Tujuan |
-|-------|----------|--------|
-| 5 menit | Refleksi pembelajaran oleh siswa | Peserta didik menyadari proses dan hasil pembelajaran |
-| 5 menit | Penyimpulan materi oleh guru | Memastikan pemahaman konsep yang tepat |
-| 5 menit | Evaluasi formatif melalui kuis singkat | Mengukur pencapaian tujuan pembelajaran |
+D. Materi Pembelajaran
 
-### 12. Asesmen
+Materi Pokok
+| Komponen | Keterangan |
+|----------|------------|
+| Materi | ${data.materi} |
+| Deskripsi | [Deskripsi materi pokok] |
 
-#### a. Asesmen Formatif
-| Jenis Asesmen | Teknik | Instrumen | Waktu |
-|---------------|--------|-----------|-------|
-| Observasi | Pengamatan partisipasi | Lembar Observasi | Selama pembelajaran |
-| Tanya Jawab | Lisan | Daftar Pertanyaan | Selama pembelajaran |
-| Kuis Singkat | Tes Tertulis | Soal Pilihan Ganda | 10 menit |
-| LKPD | Penilaian Kerja | Lembar Kerja | 15 menit |
+Materi Fakta
+| No | Fakta | Deskripsi |
+|----|-------|----------|
+| 1 | [Fakta 1] | [Deskripsi fakta 1] |
+| 2 | [Fakta 2] | [Deskripsi fakta 2] |
+| 3 | [Fakta 3] | [Deskripsi fakta 3] |
 
-#### b. Asesmen Sumatif
-| Jenis Asesmen | Teknik | Instrumen | Waktu |
-|---------------|--------|-----------|-------|
-| Tes Tertulis | Tes Uraian | Soal Uraian | 30 menit |
-| Proyek | Penilaian Proyek | Rubrik Proyek | 1 minggu |
+Materi Konsep
+| No | Konsep | Deskripsi |
+|----|--------|----------|
+| 1 | [Konsep 1] | [Deskripsi konsep 1] |
+| 2 | [Konsep 2] | [Deskripsi konsep 2] |
+| 3 | [Konsep 3] | [Deskripsi konsep 3] |
 
-### 13. Kriteria Ketercapaian Tujuan Pembelajaran
-| Aspek | Kriteria | Indikator Pencapaian |
-|-------|----------|---------------------|
-| Pengetahuan | Memahami konsep ${materi} | Peserta didik mampu menjelaskan konsep dengan benar |
-| Keterampilan | Menerapkan konsep ${materi} | Peserta didik mampu menyelesaikan soal dengan tepat |
-| Sikap | Menunjukkan sikap ilmiah | Peserta didik aktif berpartisipasi dan bertanya |
+Materi Prosedural
+| No | Prosedur | Deskripsi |
+|----|----------|----------|
+| 1 | [Prosedur 1] | [Deskripsi prosedur 1] |
+| 2 | [Prosedur 2] | [Deskripsi prosedur 2] |
+| 3 | [Prosedur 3] | [Deskripsi prosedur 3] |
 
-### 14. Refleksi Guru dan Peserta Didik
-| Komponen | Pertanyaan Refleksi |
-|----------|-------------------|
-| Refleksi Guru | Apa strategi yang paling efektif dalam pembelajaran hari ini? |
-| Refleksi Guru | Bagaimana cara meningkatkan pemahaman siswa tentang konsep yang sulit? |
-| Refleksi Peserta Didik | Konsep apa yang paling kamu pahami hari ini? |
-| Refleksi Peserta Didik | Bagian mana dari pembelajaran yang paling menantang bagimu? |
+E. Rencana Pembelajaran per Pertemuan
 
-## C. LAMPIRAN
+ ${Array.from({ length: pertemuanNum }, (_, i) => {
+   // Distribute TP across meetings
+   let tpFocus: any[] = [];
+   if (i === 0)
+     tpFocus = [1, 2]; // First meeting
+   else if (i === 1)
+     tpFocus = [2, 3]; // Second meeting
+   else if (i === 2)
+     tpFocus = [3, 4]; // Third meeting
+   else if (i === 3)
+     tpFocus = [4, 5]; // Fourth meeting
+   else if (i === 4)
+     tpFocus = [5]; // Fifth meeting if exists
+   else if (i === 5)
+     tpFocus = [5]; // Sixth meeting if exists
+   else if (i === 6)
+     tpFocus = [5]; // Seventh meeting if exists
+   else if (i === 7) tpFocus = [5]; // Eighth meeting if exists
 
-### 15. Lembar Kerja Peserta Didik (LKPD)
-| Komponen | Isi |
-|----------|-----|
-| Judul Aktivitas | Eksplorasi Konsep ${materi} |
-| Tujuan | Memahami penerapan ${materi} dalam konteks nyata |
-| Petunjuk Pengerjaan | 1. Baca kasus yang diberikan 2. Diskusikan dengan kelompok 3. Tulis hasil analisis |
-| Soal/Instruksi | Analisis kasus [kasus terkait materi] menggunakan konsep ${materi} |
-| Waktu Pengerjaan | 20 menit |
+   // Add model-specific components
+   let modelSpecificContent = "";
+   if (data.model === "Project Based Learning") {
+     modelSpecificContent = `
+        
+        Deskripsi Proyek
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Judul Proyek | [Judul proyek ${data.materi}] |
+        | Deskripsi | [Deskripsi proyek ${data.materi}] |
+        | Tujuan | [Tujuan proyek] |
+        
+        Tahapan Proyek
+        | Tahap | Kegiatan | Waktu | Output |
+        |-------|----------|-------|--------|
+        | 1 | [Tahap 1] | [Waktu] | [Output 1] |
+        | 2 | [Tahap 2] | [Waktu] | [Output 2] |
+        | 3 | [Tahap 3] | [Waktu] | [Output 3] |
+        `;
+     if (i === pertemuanNum - 1) {
+       modelSpecificContent += `
+        
+        Presentasi
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Format | [Format presentasi] |
+        | Durasi | [Durasi presentasi] |
+        | Penilaian | [Kriteria penilaian] |
+        
+        Rubrik Proyek
+        | Aspek | Kriteria | Bobot |
+        |-------|----------|-------|
+        | Perencanaan | [Kriteria perencanaan] | 20% |
+        | Proses | [Kriteria proses] | 40% |
+        | Produk | [Kriteria produk] | 30% |
+        | Presentasi | [Kriteria presentasi] | 10% |
+        `;
+     }
+   } else if (data.model === "Problem Based Learning") {
+     modelSpecificContent = `
+        
+        Skenario Masalah
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Masalah | [Skenario masalah nyata terkait ${data.materi}] |
+        | Konteks | [Konteks masalah] |
+        | Tantangan | [Tantangan yang dihadapi] |
+        
+        Hipotesis Solusi
+        | No | Hipotesis | Alasan |
+        |----|-----------|--------|
+        | 1 | [Hipotesis 1] | [Alasan 1] |
+        | 2 | [Hipotesis 2] | [Alasan 2] |
+        `;
+     if (i === Math.floor(pertemuanNum / 2)) {
+       modelSpecificContent += `
+        
+        Evaluasi Solusi
+        | Kriteria | Penilaian | Skor |
+        |----------|-----------|-------|
+        | [Kriteria 1] | [Penilaian 1] | [Skor] |
+        | [Kriteria 2] | [Penilaian 2] | [Skor] |
+        `;
+     }
+   }
 
-### 16. Bahan Bacaan
-| Jenis | Sumber | Keterangan |
-|-------|--------|------------|
-| Untuk Peserta Didik | Buku Teks ${mapel} Kelas ${kelas} | Bab tentang ${materi} |
-| Untuk Peserta Didik | Video Pembelajaran ${materi} | Durasi 10 menit |
-| Untuk Guru | Modul Ajar ${mapel} | Panduan pembelajaran ${materi} |
-| Untuk Guru | Jurnal Pendidikan ${mapel} | Artikel tentang strategi pembelajaran ${materi} |
+   return `
+Pertemuan ke-${i + 1} (${waktuPerPertemuan} menit)
 
-### 17. Glosarium
-| Istilah | Definisi |
-|---------|----------|
-| ${materi.split(" ")[0] || "Konsep Utama"} | Penjelasan tentang konsep utama yang dipelajari |
-| Variabel | Simbol yang mewakili nilai yang dapat berubah |
-| Persamaan | Pernyataan matematika yang menunjukkan kesetaraan dua ekspresi |
-| Solusi | Nilai atau himpunan nilai yang memenuhi persamaan |
-| Aplikasi | Penerapan konsep matematika dalam situasi nyata |
+Tujuan Pembelajaran
+| No | Tujuan Pembelajaran |
+|----|---------------------|
+ ${tpFocus.map((tp) => `| ${tp} | [TP ${tp} untuk pertemuan ${i + 1}] |`).join("\n ")}
 
-### 18. Daftar Pustaka
-| No | Sumber | Jenis | Tahun |
-|----|--------|-------|-------|
-| 1 | Buku Teks ${mapel} Kelas ${kelas} | Buku Teks | 2022 |
-| 2 | Modul Ajar Kurikulum Merdeka ${mapel} | Modul Ajar | 2022 |
-| 3 | Panduan Pembelajaran ${mapel} | Panduan | 2023 |
-| 4 | Website resmi Kemendikbudristek | Sumber Online | 2025 |
+Pemantik / Apersepsi
+| Kegiatan | Waktu | Metode |
+|----------|-------|--------|
+| [Pemantik/aperspsi untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
 
----
-*Modul ini disusun sesuai Kurikulum Merdeka dan Permendikdasmen No. 13 Tahun 2025*
-    `;
+Kegiatan Inti
+| No | Kegiatan | Waktu | Metode |
+|----|----------|-------|--------|
+| 1 | [Kegiatan inti 1 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+| 2 | [Kegiatan inti 2 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+| 3 | [Kegiatan inti 3 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+ ${modelSpecificContent}
+
+Kegiatan Penutup
+| Kegiatan | Waktu | Metode |
+|----------|-------|--------|
+| [Kegiatan penutup untuk pertemuan ${i + 1}] | [Waktu] | [Metode] |
+
+Asesmen Pertemuan
+| Jenis | Instrumen | Waktu | Kriteria |
+|-------|-----------|-------|----------|
+| [Jenis asesmen] | [Instrumen] | [Waktu] | [Kriteria] |
+`;
+ }).join("")}
+
+F. Lembar Kerja Peserta Didik (LKPD)
+
+Judul LKPD
+ ${data.materi}
+
+Petunjuk Belajar
+1. Bacalah dengan teliti petunjuk setiap kegiatan
+2. Kerjakan secara mandiri atau dalam kelompok sesuai instruksi
+3. Gunakan alat dan bahan yang tersedia dengan baik
+4. Tanyakan kepada guru jika ada yang tidak kamu pahami
+
+Tujuan Pembelajaran
+1. [Tujuan pembelajaran 1]
+2. [Tujuan pembelajaran 2]
+3. [Tujuan pembelajaran 3]
+
+Materi Singkat
+ ${data.materi} adalah [deskripsi singkat ${data.materi}]. Konsep ini penting karena [alasan pentingnya ${data.materi}].
+
+Aktivitas / Langkah Kerja
+1. [Langkah kerja 1]
+2. [Langkah kerja 2]
+3. [Langkah kerja 3]
+4. [Langkah kerja 4]
+5. [Langkah kerja 5]
+
+ ${
+   data.jenjang === "SMK"
+     ? `
+Job Sheet
+
+Alat dan Bahan
+1. [Alat/Bahan 1]: [Jumlah]
+2. [Alat/Bahan 2]: [Jumlah]
+3. [Alat/Bahan 3]: [Jumlah]
+
+Langkah Kerja Sistematis
+1. [Langkah kerja 1]
+2. [Langkah kerja 2]
+3. [Langkah kerja 3]
+4. [Langkah kerja 4]
+5. [Langkah kerja 5]
+
+Keselamatan Kerja (K3)
+1. [Aspek keselamatan 1]: [Keterangan]
+2. [Aspek keselamatan 2]: [Keterangan]
+3. [Aspek keselamatan 3]: [Keterangan]
+`
+     : ""
+ }
+
+Tugas / Soal / Studi Kasus
+1. [Tugas/Soal/Studi Kasus 1]
+2. [Tugas/Soal/Studi Kasus 2]
+3. [Tugas/Soal/Studi Kasus 3]
+
+Komponen Penilaian
+1. Sikap: [Kriteria penilaian sikap]
+2. Pengetahuan: [Kriteria penilaian pengetahuan]
+3. Keterampilan: [Kriteria penilaian keterampilan]
+
+G. Asesmen Pembelajaran
+
+Asesmen Diagnostik
+| Komponen | Instrumen | Tujuan |
+|----------|-----------|--------|
+| [Komponen 1] | [Instrumen 1] | [Tujuan 1] |
+| [Komponen 2] | [Instrumen 2] | [Tujuan 2] |
+
+Asesmen Formatif
+| Jenis | Teknik | Instrumen | Waktu |
+|-------|--------|-----------|-------|
+| [Jenis 1] | [Teknik 1] | [Instrumen 1] | [Waktu] |
+| [Jenis 2] | [Teknik 2] | [Instrumen 2] | [Waktu] |
+
+Asesmen Sumatif
+| Jenis | Bentuk | Waktu | Bobot |
+|-------|--------|-------|-------|
+| [Jenis 1] | [Bentuk 1] | [Waktu] | [Bobot] |
+| [Jenis 2] | [Bentuk 2] | [Waktu] | [Bobot] |
+
+ ${
+   data.model.includes("Project")
+     ? `
+Asesmen Proyek / Kinerja
+| Aspek | Kriteria | Indikator | Skor Maks |
+|-------|----------|-----------|------------|
+| Perencanaan | [Kriteria perencanaan] | [Indikator] | [Skor] |
+| Proses | [Kriteria proses] | [Indikator] | [Skor] |
+| Produk | [Kriteria produk] | [Indikator] | [Skor] |
+| Presentasi | [Kriteria presentasi] | [Indikator] | [Skor] |
+
+Rubrik Penilaian
+| Aspek | Kriteria | Bobot |
+|-------|----------|-------|
+| Perencanaan | [Kriteria perencanaan] | 20% |
+| Proses | [Kriteria proses] | 40% |
+| Produk | [Kriteria produk] | 30% |
+| Presentasi | [Kriteria presentasi] | 10% |
+`
+     : ""
+ }
+
+H. Media dan Sumber Belajar
+
+Media Pembelajaran
+| No | Media | Jenis | Fungsi | Penggunaan |
+|----|-------|-------|--------|------------|
+| 1 | [Media 1] | [Jenis 1] | [Fungsi 1] | [Penggunaan 1] |
+| 2 | [Media 2] | [Jenis 2] | [Fungsi 2] | [Penggunaan 2] |
+| 3 | [Media 3] | [Jenis 3] | [Fungsi 3] | [Penggunaan 3] |
+
+Sumber Belajar
+| No | Sumber | Jenis | Relevansi | Akses |
+|----|--------|-------|----------|-------|
+| 1 | [Sumber 1] | [Jenis 1] | [Relevansi 1] | [Akses 1] |
+| 2 | [Sumber 2] | [Jenis 2] | [Relevansi 2] | [Akses 2] |
+| 3 | [Sumber 3] | [Jenis 3] | [Relevansi 3] | [Akses 3] |
+
+I. Diferensiasi Pembelajaran
+
+Diferensiasi Konten
+| Aspek | Strategi | Implementasi | Penilaian |
+|-------|----------|--------------|-----------|
+| [Aspek 1] | [Strategi 1] | [Implementasi 1] | [Penilaian 1] |
+| [Aspek 2] | [Strategi 2] | [Implementasi 2] | [Penilaian 2] |
+
+Diferensiasi Proses
+| Kegiatan | Strategi | Kelompok | Waktu |
+|----------|----------|----------|-------|
+| [Kegiatan 1] | [Strategi 1] | [Kelompok 1] | [Waktu] |
+| [Kegiatan 2] | [Strategi 2] | [Kelompok 2] | [Waktu] |
+
+Diferensiasi Produk
+| Jenis | Pilihan | Kriteria | Waktu |
+|-------|---------|----------|-------|
+| [Jenis 1] | [Pilihan 1] | [Kriteria 1] | [Waktu] |
+| [Jenis 2] | [Pilihan 2] | [Kriteria 2] | [Waktu] |
+
+J. Refleksi Pembelajaran
+
+Refleksi Peserta Didik
+| No | Pertanyaan | Tujuan |
+|----|------------|--------|
+| 1 | [Pertanyaan refleksi 1] | [Tujuan 1] |
+| 2 | [Pertanyaan refleksi 2] | [Tujuan 2] |
+| 3 | [Pertanyaan refleksi 3] | [Tujuan 3] |
+
+Refleksi Guru
+| No | Pertanyaan | Fokus |
+|----|------------|-------|
+| 1 | [Pertanyaan refleksi guru 1] | [Fokus 1] |
+| 2 | [Pertanyaan refleksi guru 2] | [Fokus 2] |
+| 3 | [Pertanyaan refleksi guru 3] | [Fokus 3] |
+
+Daftar Pustaka
+
+| No | Sumber Pustaka | Pengarang | Tahun | Penerbit | ISBN |
+|----|---------------|-----------|-------|---------|------|
+| 1 | [Judul Buku 1] | [Pengarang 1] | [Tahun 1] | [Penerbit 1] | [ISBN 1] |
+| 2 | [Judul Buku 2] | [Pengarang 2] | [Tahun 2] | [Penerbit 2] | [ISBN 2] |
+| 3 | [Judul Buku 3] | [Pengarang 3] | [Tahun 3] | [Penerbit 3] | [ISBN 3] |
+
+Glosarium
+
+| No | Istilah | Definisi | Contoh |
+|----|---------|----------|--------|
+| 1 | [Istilah 1] | [Definisi istilah 1] | [Contoh 1] |
+| 2 | [Istilah 2] | [Definisi istilah 2] | [Contoh 2] |
+| 3 | [Istilah 3] | [Definisi istilah 3] | [Contoh 3] |
+`;
   } else {
-    // K13 Format
+    // Kurikulum Berbasis Kompetensi/K13 Format
     return `
-# ${judul}
+MODUL AJAR ${data.mapel}
+"${data.materi}"
 
-## A. IDENTITAS
+A. Identitas Modul
 
-### 1. Identitas Modul
-| Komponen | Isi |
-|----------|-----|
-| Satuan Pendidikan | ${institusi} |
-| Mata Pelajaran | ${mapel} |
-| Kelas | ${kelas} |
-| Semester | ${semester} |
-| Tahun Pelajaran | ${tahunPelajaran} |
-| Alokasi Waktu | ${durasi} |
-| Penyusun | ${namaGuru} |
+| Komponen | Keterangan |
+|----------|------------|
+| Satuan Pendidikan | ${data.institusi} |
+| Mata Pelajaran | ${data.mapel} |
+| Kelas / Semester | ${data.kelas} / ${data.semester} |
+| Tahun Pelajaran | ${data.tahunAjaran} |
+| Alokasi Waktu | ${data.jumlahPertemuan} pertemuan × ${waktuPerPertemuan} menit (total ${totalWaktu} menit) |
+| Model / Metode Pembelajaran | ${data.model} |
 
-### 2. Kompetensi Inti (KI)
+B. Kompetensi
+
+Kompetensi Inti (KI)
 | KI | Kompetensi Inti |
 |----|----------------|
-| KI-1 | Menghargai dan menghayati ajaran agama yang dianutnya |
-| KI-2 | Menghargai dan menghayati perilaku jujur, disiplin, tanggung jawab, peduli (gotong royong, kerjasama, toleran, damai), santun, responsif dan pro-aktif dan menunjukkan sikap sebagai bagian dari solusi atas berbagai permasalahan dalam berinteraksi secara efektif dengan lingkungan sosial dan alam serta dalam menempatkan diri sebagai cerminan bangsa dalam pergaulan dunia |
-| KI-3 | Memahami, menerapkan, menganalisis pengetahuan faktual, konseptual, prosedural berdasarkan rasa ingin tahunya tentang ilmu pengetahuan, teknologi, seni, budaya terkait fenomena dan kejadian tampak mata |
-| KI-4 | Mengolah, menalar, menyaji, dan mencipta dalam ranah konkret dan ranah abstrak terkait dengan pengembangan dari yang dipelajarinya di sekolah secara mandiri serta bertindak secara efektif dan kreatif, dan mampu menggunakan metoda sesuai kaidah keilmuan |
+| KI-1 | [KI-1 sesuai jenjang] |
+| KI-2 | [KI-2 sesuai jenjang] |
+| KI-3 | [KI-3 sesuai jenjang] |
+| KI-4 | [KI-4 sesuai jenjang] |
 
-### 3. Kompetensi Dasar (KD)
+Kompetensi Dasar (KD)
 | No | Kompetensi Dasar |
-|----|-----------------|
-| 1 | 3.1 Menerapkan konsep ${materi} dalam pemecahan masalah |
-| 2 | 3.2 Menganalisis hubungan ${materi} dengan kehidupan sehari-hari |
-| 3 | 4.1 Menyelesaikan soal terkait ${materi} dengan metode yang tepat |
-| 4 | 4.2 Membuat laporan hasil praktikum ${materi} |
+|----|------------------|
+| 1 | [KD 1] |
+| 2 | [KD 2] |
+| 3 | [KD 3] |
+| 4 | [KD 4] |
 
-### 4. Indikator Pencapaian Kompetensi
-| No | Indikator |
-|----|-----------|
-| 1 | Menjelaskan konsep dasar ${materi} dengan benar |
-| 2 | Menerapkan rumus ${materi} dalam soal |
-| 3 | Menganalisis penerapan ${materi} dalam kasus nyata |
-| 4 | Menyajikan hasil analisis secara sistematis |
+Indikator Pencapaian Kompetensi
+| No | Indikator | KD Terkait |
+|----|-----------|------------|
+| 1 | [Indikator 1] | [KD] |
+| 2 | [Indikator 2] | [KD] |
+| 3 | [Indikator 3] | [KD] |
+| 4 | [Indikator 4] | [KD] |
 
-### 5. Tujuan Pembelajaran
-| No | Tujuan Pembelajaran |
-|----|---------------------|
-| 1 | Peserta didik mampu menjelaskan konsep ${materi} dengan tepat |
-| 2 | Peserta didik mampu menerapkan konsep ${materi} dalam soal latihan |
-| 3 | Peserta didik mampu menganalisis penerapan ${materi} |
-| 4 | Peserta didik mampu menyajikan hasil pembelajaran |
+C. Tujuan Pembelajaran
 
-## B. KEGIATAN PEMBELAJARAN
+Tujuan Pembelajaran Pengetahuan
+| No | Tujuan Pembelajaran | Indikator |
+|----|---------------------|-----------|
+| 1 | [Tujuan pengetahuan 1] | [Indikator] |
+| 2 | [Tujuan pengetahuan 2] | [Indikator] |
+| 3 | [Tujuan pengetahuan 3] | [Indikator] |
 
-### 1. Kegiatan Pendahuluan
-| Waktu | Kegiatan | Metode |
-|-------|----------|--------|
-| 10 menit | Guru menyapa, memeriksa kehadiran, dan mengondisikan kelas | Ceramah |
-| 10 menit | Apersepsi: mengingat kembali materi sebelumnya terkait ${materi} | Tanya jawab |
-| 5 menit | Menyampaikan tujuan pembelajaran | Ekspositori |
+Tujuan Pembelajaran Keterampilan
+| No | Tujuan Pembelajaran | Indikator |
+|----|---------------------|-----------|
+| 1 | [Tujuan keterampilan 1] | [Indikator] |
+| 2 | [Tujuan keterampilan 2] | [Indikator] |
+| 3 | [Tujuan keterampilan 3] | [Indikator] |
 
-### 2. Kegiatan Inti
-| Waktu | Kegiatan | Metode |
-|-------|----------|--------|
-| 20 menit | Eksplorasi konsep ${materi} melalui penjelasan guru | Ceramah interaktif |
-| 25 menit | Diskusi kelompok tentang penerapan ${materi} | Kooperatif |
-| 20 menit | Praktik penerapan konsep ${materi} | Praktikum |
-| 10 menit | Presentasi hasil diskusi kelompok | Presentasi |
+D. Materi Pembelajaran
 
-### 3. Kegiatan Penutup
-| Waktu | Kegiatan | Metode |
-|-------|----------|--------|
-| 10 menit | Guru bersama siswa membuat kesimpulan | Diskusi kelas |
-| 5 menit | Memberikan tes formatif untuk mengukur pememahaman | Tes tertulis |
-| 5 menit | Memberikan tugas rumah dan informasi pertemuan berikutnya | Penugasan |
+Materi Pokok
+| Komponen | Keterangan |
+|----------|------------|
+| Materi | ${data.materi} |
+| Deskripsi | [Deskripsi materi pokok] |
 
-## C. PENILAIAN
+Materi Fakta
+| No | Fakta | Deskripsi | Sumber |
+|----|-------|----------|--------|
+| 1 | [Fakta 1] | [Deskripsi fakta 1] | [Sumber 1] |
+| 2 | [Fakta 2] | [Deskripsi fakta 2] | [Sumber 2] |
+| 3 | [Fakta 3] | [Deskripsi fakta 3] | [Sumber 3] |
 
-### 1. Teknik Penilaian
-| Jenis | Teknik | Instrumen |
-|-------|--------|-----------|
-| Sikap | Observasi | Lembar Observasi Sikap |
-| Pengetahuan | Tes Tertulis | Soal Uraian dan Pilihan Ganda |
-| Keterampilan | Praktik | Rubrik Penilaian Praktik |
+Materi Konsep
+| No | Konsep | Definisi | Contoh |
+|----|--------|----------|--------|
+| 1 | [Konsep 1] | [Definisi konsep 1] | [Contoh 1] |
+| 2 | [Konsep 2] | [Definisi konsep 2] | [Contoh 2] |
+| 3 | [Konsep 3] | [Definisi konsep 3] | [Contoh 3] |
 
-### 2. Kriteria Ketuntasan Minimal (KKM)
-| Komponen | KKM |
-|----------|-----|
-| Pengetahuan | 75 |
-| Keterampilan | 75 |
-| Sikap | Baik |
+Materi Prosedural
+| No | Prosedur | Langkah-langkah | Aplikasi |
+|----|----------|---------------|-----------|
+| 1 | [Prosedur 1] | [Langkah-langkah 1] | [Aplikasi 1] |
+| 2 | [Prosedur 2] | [Langkah-langkah 2] | [Aplikasi 2] |
+| 3 | [Prosedur 3] | [Langkah-langkah 3] | [Aplikasi 3] |
 
-### 3. Remidial dan Pengayaan
-| Kegiatan | Target |
-|----------|--------|
-| Remidial | Peserta didik yang belum mencapai KKM diberikan bimbingan tambahan |
-| Pengayaan | Peserta didik yang mencapai KKM diberikan tugas pengayaan |
+E. Kegiatan Pembelajaran
 
-## D. MEDIA DAN SUMBER BELAJAR
+ ${Array.from({ length: pertemuanNum }, (_, i) => {
+   // Add model-specific components
+   let modelSpecificContent = "";
+   if (data.model === "Project Based Learning") {
+     modelSpecificContent = `
+        
+        Deskripsi Proyek
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Judul Proyek | [Judul proyek ${data.materi}] |
+        | Deskripsi | [Deskripsi proyek ${data.materi}] |
+        | Tujuan | [Tujuan proyek] |
+        
+        Tahapan Proyek
+        | Tahap | Kegiatan | Waktu | Output |
+        |-------|----------|-------|--------|
+        | 1 | [Tahap 1] | [Waktu] | [Output 1] |
+        | 2 | [Tahap 2] | [Waktu] | [Output 2] |
+        | 3 | [Tahap 3] | [Waktu] | [Output 3] |
+        `;
+     if (i === pertemuanNum - 1) {
+       modelSpecificContent += `
+        
+        Presentasi
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Format | [Format presentasi] |
+        | Durasi | [Durasi presentasi] |
+        | Penilaian | [Kriteria penilaian] |
+        
+        Rubrik Proyek
+        | Aspek | Kriteria | Bobot |
+        |-------|----------|-------|
+        | Perencanaan | [Kriteria perencanaan] | 20% |
+        | Proses | [Kriteria proses] | 40% |
+        | Produk | [Kriteria produk] | 30% |
+        | Presentasi | [Kriteria presentasi] | 10% |
+        `;
+     }
+   } else if (data.model === "Problem Based Learning") {
+     modelSpecificContent = `
+        
+        Skenario Masalah
+        | Komponen | Keterangan |
+        |----------|------------|
+        | Masalah | [Skenario masalah nyata terkait ${data.materi}] |
+        | Konteks | [Konteks masalah] |
+        | Tantangan | [Tantangan yang dihadapi] |
+        
+        Hipotesis Solusi
+        | No | Hipotesis | Alasan |
+        |----|-----------|--------|
+        | 1 | [Hipotesis 1] | [Alasan 1] |
+        | 2 | [Hipotesis 2] | [Alasan 2] |
+        `;
+     if (i === Math.floor(pertemuanNum / 2)) {
+       modelSpecificContent += `
+        
+        Evaluasi Solusi
+        | Kriteria | Penilaian | Skor |
+        |----------|-----------|-------|
+        | [Kriteria 1] | [Penilaian 1] | [Skor] |
+        | [Kriteria 2] | [Penilaian 2] | [Skor] |
+        `;
+     }
+   }
 
-### 1. Media Pembelajaran
-| Jenis Media | Keterangan |
-|-------------|------------|
-| Media Visual | Papan tulis, spidol, LCD proyektor |
-| Media Audio | Speaker untuk penjelasan audio |
-| Media Interaktif | Presentasi PowerPoint, video pembelajaran |
+   return `
+Pertemuan ke-${i + 1} (${waktuPerPertemuan} menit)
 
-### 2. Sumber Belajar
-| Jenis Sumber | Keterangan |
-|--------------|------------|
-| Buku Teks | Buku ${mapel} Kelas ${kelas} Kurikulum 2013 |
-| Buku Referensi | Buku panduan ${materi} tingkat lanjut |
-| Sumber Internet | Website pembelajaran ${mapel} terpercaya |
-| Lingkungan | Objek nyata terkait ${materi} di sekitar |
+Pendahuluan
+| Kegiatan | Waktu | Metode | Tujuan |
+|----------|-------|--------|--------|
+| [Kegiatan pendahuluan untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
 
-## E. LAMPIRAN
+Kegiatan Inti
+| No | Kegiatan | Waktu | Metode | Tujuan |
+|----|----------|-------|--------|--------|
+| 1 | [Kegiatan inti 1 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+| 2 | [Kegiatan inti 2 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+| 3 | [Kegiatan inti 3 untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+ ${modelSpecificContent}
 
-### 1. LKS (Lembar Kerja Siswa)
-| Komponen | Isi |
-|----------|-----|
-| Judul | Praktikum ${materi} |
-| Tujuan | Menerapkan konsep ${materi} dalam praktikum |
-| Petunjuk | Ikuti langkah-langkah praktikum dengan teliti |
-| Soal | Jawablah pertanyaan berdasarkan hasil praktikum |
+Penutup
+| Kegiatan | Waktu | Metode | Tujuan |
+|----------|-------|--------|--------|
+| [Kegiatan penutup untuk pertemuan ${i + 1}] | [Waktu] | [Metode] | [Tujuan] |
+`;
+ }).join("")}
 
-### 2. Kunci Jawaban
-| No | Jawaban |
-|----|---------|
-| 1 | [Jawaban soal nomor 1] |
-| 2 | [Jawaban soal nomor 2] |
-| 3 | [Jawaban soal nomor 3] |
-| 4 | [Jawaban soal nomor 4] |
+F. Lembar Kerja Peserta Didik (LKPD)
 
-### 3. Daftar Pustaka
-| No | Sumber |
-|----|--------|
-| 1 | Buku ${mapel} Kelas ${kelas} Kurikulum 2013 |
-| 2 | Panduan Pembelajaran ${mapel} |
-| 3 | Jurnal Pendidikan ${mapel} Terkini |
+Judul LKPD
+ ${data.materi}
 
----
-*Modul ini disusun sesuai Kurikulum 2013 dan Permendikbud No. 22 Tahun 2016*
-    `;
+Petunjuk Belajar
+1. Bacalah dengan teliti petunjuk setiap kegiatan
+2. Kerjakan secara mandiri atau dalam kelompok sesuai instruksi
+3. Gunakan alat dan bahan yang tersedia dengan baik
+4. Tanyakan kepada guru jika ada yang tidak kamu pahami
+
+Tujuan Pembelajaran
+1. [Tujuan pembelajaran 1]
+2. [Tujuan pembelajaran 2]
+3. [Tujuan pembelajaran 3]
+
+Materi Singkat
+ ${data.materi} adalah [deskripsi singkat ${data.materi}]. Konsep ini penting karena [alasan pentingnya ${data.materi}].
+
+Aktivitas / Langkah Kerja
+1. [Langkah kerja 1]
+2. [Langkah kerja 2]
+3. [Langkah kerja 3]
+4. [Langkah kerja 4]
+5. [Langkah kerja 5]
+
+ ${
+   data.jenjang === "SMK"
+     ? `
+Job Sheet
+
+Alat dan Bahan
+1. [Alat/Bahan 1]: [Jumlah]
+2. [Alat/Bahan 2]: [Jumlah]
+3. [Alat/Bahan 3]: [Jumlah]
+
+Langkah Kerja Sistematis
+1. [Langkah kerja 1]
+2. [Langkah kerja 2]
+3. [Langkah kerja 3]
+4. [Langkah kerja 4]
+5. [Langkah kerja 5]
+
+Keselamatan Kerja (K3)
+1. [Aspek keselamatan 1]: [Keterangan]
+2. [Aspek keselamatan 2]: [Keterangan]
+3. [Aspek keselamatan 3]: [Keterangan]
+`
+     : ""
+ }
+
+Tugas / Soal / Studi Kasus
+1. [Tugas/Soal/Studi Kasus 1]
+2. [Tugas/Soal/Studi Kasus 2]
+3. [Tugas/Soal/Studi Kasus 3]
+
+Komponen Penilaian
+1. Sikap: [Kriteria penilaian sikap]
+2. Pengetahuan: [Kriteria penilaian pengetahuan]
+3. Keterampilan: [Kriteria penilaian keterampilan]
+
+G. Penilaian
+
+Penilaian Sikap
+| Aspek | Indikator | Teknik | Instrumen |
+|-------|----------|--------|-----------|
+| [Aspek 1] | [Indikator 1] | [Teknik 1] | [Instrumen 1] |
+| [Aspek 2] | [Indikator 2] | [Teknik 2] | [Instrumen 2] |
+
+Penilaian Pengetahuan
+| Jenis | Teknik | Waktu | Bentuk | Kriteria |
+|-------|--------|-------|--------|----------|
+| [Jenis 1] | [Teknik 1] | [Waktu] | [Bentuk 1] | [Kriteria 1] |
+| [Jenis 2] | [Teknik 2] | [Waktu] | [Bentuk 2] | [Kriteria 2] |
+
+Penilaian Keterampilan
+| Jenis | Teknik | Waktu | Bentuk | Kriteria |
+|-------|--------|-------|--------|----------|
+| [Jenis 1] | [Teknik 1] | [Waktu] | [Bentuk 1] | [Kriteria 1] |
+| [Jenis 2] | [Teknik 2] | [Waktu] | [Bentuk 2] | [Kriteria 2] |
+
+Instrumen & Rubrik
+| Jenis | Nama Instrumen | Fungsi | Waktu |
+|-------|----------------|--------|-------|
+| [Jenis 1] | [Nama 1] | [Fungsi 1] | [Waktu] |
+| [Jenis 2] | [Nama 2] | [Fungsi 2] | [Waktu] |
+
+H. Media dan Sumber Belajar
+
+Media Pembelajaran
+| No | Media | Jenis | Fungsi | Penggunaan |
+|----|-------|-------|--------|------------|
+| 1 | [Media 1] | [Jenis 1] | [Fungsi 1] | [Penggunaan 1] |
+| 2 | [Media 2] | [Jenis 2] | [Fungsi 2] | [Penggunaan 2] |
+| 3 | [Media 3] | [Jenis 3] | [Fungsi 3] | [Penggunaan 3] |
+
+Sumber Belajar
+| No | Sumber | Jenis | Relevansi | Akses |
+|----|--------|-------|----------|-------|
+| 1 | [Sumber 1] | [Jenis 1] | [Relevansi 1] | [Akses 1] |
+| 2 | [Sumber 2] | [Jenis 2] | [Relevansi 2] | [Akses 2] |
+| 3 | [Sumber 3] | [Jenis 3] | [Relevansi 3] | [Akses 3] |
+
+I. Refleksi & Tindak Lanjut
+
+Refleksi Peserta Didik
+| No | Pertanyaan | Tujuan |
+|----|------------|--------|
+| 1 | [Pertanyaan refleksi 1] | [Tujuan 1] |
+| 2 | [Pertanyaan refleksi 2] | [Tujuan 2] |
+| 3 | [Pertanyaan refleksi 3] | [Tujuan 3] |
+
+Refleksi Guru
+| No | Pertanyaan | Fokus |
+|----|------------|-------|
+| 1 | [Pertanyaan refleksi guru 1] | [Fokus 1] |
+| 2 | [Pertanyaan refleksi guru 2] | [Fokus 2] |
+| 3 | [Pertanyaan refleksi guru 3] | [Fokus 3] |
+
+Tindak Lanjut
+| Aspek | Kegiatan | Waktu | Penanggung Jawab |
+|-------|----------|-------|----------------|
+| [Aspek 1] | [Kegiatan 1] | [Waktu] | [Penanggung jawab 1] |
+| [Aspek 2] | [Kegiatan 2] | [Waktu] | [Penanggung jawab 2] |
+
+Daftar Pustaka
+
+| No | Sumber Pustaka | Pengarang | Tahun | Penerbit | ISBN |
+|----|---------------|-----------|-------|---------|------|
+| 1 | [Judul Buku 1] | [Pengarang 1] | [Tahun 1] | [Penerbit 1] | [ISBN 1] |
+| 2 | [Judul Buku 2] | [Pengarang 2] | [Tahun 2] | [Penerbit 2] | [ISBN 2] |
+| 3 | [Judul Buku 3] | [Pengarang 3] | [Tahun 3] | [Penerbit 3] | [ISBN 3] |
+
+Glosarium
+
+| No | Istilah | Definisi | Contoh |
+|----|---------|----------|--------|
+| 1 | [Istilah 1] | [Definisi istilah 1] | [Contoh 1] |
+| 2 | [Istilah 2] | [Definisi istilah 2] | [Contoh 2] |
+| 3 | [Istilah 3] | [Definisi istilah 3] | [Contoh 3] |
+`;
   }
 }

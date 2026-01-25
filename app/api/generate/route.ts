@@ -3,18 +3,23 @@ import { NextResponse } from "next/server";
 import { generateTeachingModule } from "@/lib/groq";
 
 interface GenerateRequest {
-  judul: string; // New field
-  kurikulum: string; // Changed to include K13
+  // Step 1: Informasi Dasar
   namaGuru: string;
   institusi: string;
+
+  // Step 1: Informasi Akademik
+  kurikulum: string; // Kurikulum Merdeka atau Kurikulum Berbasis Cinta
   jenjang: string;
-  fase: string; // Corrected from faze
-  kelas: string;
   mapel: string;
+  tahunAjaran: string;
+  fase: string;
+  kelas: string;
+  semester: string;
+
+  // Step 2: Detail Inti Pembelajaran
   materi: string;
-  tahunPelajaran: string; // New field
-  semester: string; // New field
-  durasi: string;
+  jumlahPertemuan: string;
+  alokasiWaktu: string;
   model: string;
   skl: string[];
 }
@@ -36,12 +41,13 @@ export async function POST(req: Request) {
 
       // Validate required fields
       if (
-        !parsed.judul ||
         !parsed.namaGuru ||
         !parsed.institusi ||
-        !parsed.kelas ||
         !parsed.mapel ||
-        !parsed.materi
+        !parsed.kelas ||
+        !parsed.materi ||
+        !parsed.jumlahPertemuan ||
+        !parsed.alokasiWaktu
       ) {
         throw new Error("Data tidak lengkap");
       }
@@ -62,63 +68,124 @@ export async function POST(req: Request) {
       );
     }
 
-    // Format duration
-    const formatDuration = (durasi: string): string => {
-      const durasiNum = parseInt(durasi);
-      if (isNaN(durasiNum)) {
-        return durasi;
-      }
-      return `${durasiNum} JP (${durasiNum * 45} menit)`;
-    };
+    // Calculate total duration
+    const pertemuanNum = parseInt(data.jumlahPertemuan) || 2;
+    const waktuPerPertemuan = parseInt(data.alokasiWaktu) || 90;
+    const totalWaktu = pertemuanNum * waktuPerPertemuan;
 
     // Create detailed prompt for AI based on curriculum
     const prompt = `
-    JUDUL MODUL: ${data.judul}
-    
     Buatkan MODUL AJAR ${data.kurikulum} dengan data berikut:
     
     DATA IDENTITAS:
     - Nama Penyusun: ${data.namaGuru}
-    - Satuan Pendidikan: ${data.institusi}
-    - Tahun Pelajaran: ${data.tahunPelajaran}
+    - Institusi: ${data.institusi}
+    - Tahun Ajaran: ${data.tahunAjaran}
     - Semester: ${data.semester}
-    - Dasar Hukum: ${data.kurikulum === "Kurikulum Merdeka" ? "Permendikdasmen No. 13 Tahun 2025" : "Permendikbud No. 22 Tahun 2016"}
+    - Dasar Hukum: Sesuai kebijakan ${data.kurikulum} yang berlaku
     
     DATA PEMBELAJARAN:
     - Jenjang: ${data.jenjang}
-    ${data.kurikulum === "Kurikulum Merdeka" ? `- Fase: ${data.fase} (GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS)` : ""}
+    ${data.kurikulum === "Kurikulum Merdeka" ? `- Fase: ${data.fase}` : ""}
     - Kelas: ${data.kelas}
     - Mata Pelajaran: ${data.mapel}
     - Materi Pokok: ${data.materi}
-    - Alokasi Waktu: ${formatDuration(data.durasi)}
+    - Alokasi Waktu: ${pertemuanNum} pertemuan (total ${totalWaktu} menit)
     - Model Pembelajaran: ${data.model}
+    - Jumlah Pertemuan: ${pertemuanNum} (HARUS SESUAI DENGAN INI)
     
-    PROFIL PELAJAR PANCASILA:
+    DIMENSI PROFIL LULUSAN:
     ${data.skl.map((item, i) => `${i + 1}. ${item}`).join("\n")}
     
     INSTRUKSI KHUSUS:
-    1. Buat modul dalam format teks lengkap dengan SEMUA KOMPONEN DALAM BENTUK TABEL
+    1. Buat modul dalam format teks lengkap dengan struktur yang sesuai dengan kurikulum ${data.kurikulum}
     2. Gunakan semua data di atas dalam modul
     3. Buat konten yang spesifik untuk materi "${data.materi}"
     4. Output harus langsung siap pakai sebagai modul ajar
     5. ${
       data.kurikulum === "Kurikulum Merdeka"
-        ? `Gunakan format: # MODUL AJAR KURIKULUM MERDEKA, lalu ## A. INFORMASI UMUM, ## B. KOMPONEN INTI, ## C. LAMPIRAN
-        6. Pastikan semua komponen dalam bentuk tabel markdown
-        7. Sertakan semua 18 komponen modul ajar sesuai struktur Kurikulum Merdeka
-        8. PADA BAGIAN "Kelas / Fase", gunakan format: ${data.kelas} / ${data.fase} (CONTOH: X / Fase E)
-        9. PADA BAGIAN "Fase" di Capaian Pembelajaran, gunakan "${data.fase}" TANPA MENGUBAHNYA
-        10. PENTING: FASE YANG DIGUNAKAN ADALAH "${data.fase}" - JANGAN DIUBAH KE FASE LAIN!`
-        : `Gunakan format: # MODUL AJAR KURIKULUM 2013, lalu ## A. IDENTITAS, ## B. KOMPETENSI INTI DAN KOMPETENSI DASAR, ## C. KEGIATAN PEMBELAJARAN, ## D. PENILAIAN, ## E. MEDIA DAN SUMBER BELAJAR
-        6. Pastikan semua komponen dalam bentuk tabel markdown
-        7. Sertakan KI (Kompetensi Inti) dan KD (Kompetensi Dasar) sesuai K13
-        8. Format KI: KI-1 (Sikap Spiritual), KI-2 (Sikap Sosial), KI-3 (Pengetahuan), KI-4 (Keterampilan)
-        9. Format KD sesuai dengan mata pelajaran dan materi`
+        ? `Gunakan format Kurikulum Merdeka dengan struktur lengkap (A-J)`
+        : `Gunakan format Kurikulum Berbasis Kompetensi/K13 dengan struktur lengkap (A-H)`
     }
+    6. PADA BAGIAN "Kelas", gunakan format: ${data.kelas}
+    7. ${
+      data.kurikulum === "Kurikulum Merdeka"
+        ? `PADA BAGIAN "Fase", gunakan "${data.fase}" TANPA MENGUBAHNYA`
+        : `Kurikulum Berbasis Kompetensi tidak menggunakan fase`
+    }
+    8. JUMLAH PERTEMUAN HARUS SESUAI: ${pertemuanNum} PERTEMUAN
+    9. ALOKASI WAKTU HARUS: ${pertemuanNum} pertemuan (total ${totalWaktu} menit)
     10. GUNAKAN MATERI: "${data.materi}" DI SEMUA BAGIAN YANG RELEVAN
     11. GUNAKAN MATA PELAJARAN: "${data.mapel}" DI SEMUA BAGIAN YANG RELEVAN
-    12. JANGAN GUNAKAN TEKS "(GUNAKAN FASE INI TEPAT SEPERTI YANG TERTULIS)" - GANTI DENGAN "${data.fase}"
-    13. JUDUL MODUL HARUS: "${data.judul}" - GANTI [JUDUL MODUL] DENGAN INI
+    12. ${
+      data.jenjang === "SMK"
+        ? "UNTUK SMK: Sertakan bagian Keselamatan Kerja (K3) dalam LKPD dan praktikum yang detail"
+        : ""
+    }
+    13. Format output harus persis seperti contoh yang diberikan, dengan:
+       - Judul di tengah atas: "MODUL AJAR ${data.mapel}"
+       - Subjudul dengan tanda kutip: "${data.materi}"
+       - Struktur lengkap sesuai kurikulum
+       - SEMUA BAGIAN DALAM FORMAT TABEL KECUALI LKPD
+       - LKPD tanpa tabel tetap tersusun rapi
+       - Daftar pustaka dan glosarium dalam bentuk tabel
+    14. Untuk model pembelajaran "${data.model}", tambahkan komponen khusus sesuai dengan metode tersebut:
+       ${
+         data.model === "Project Based Learning"
+           ? `- Produk akhir
+- Timeline proyek
+- Penilaian proses & produk
+- Presentasi
+- Deskripsi Proyek
+- Tahapan Proyek
+- Rubrik Proyek`
+           : data.model === "Problem Based Learning"
+             ? `- Skenario masalah nyata
+- Pertanyaan pemantik
+- Analisis masalah
+- Solusi & refleksi
+- Skenario Masalah
+- Hipotesis Solusi
+- Evaluasi Solusi`
+             : data.model === "Cooperative Learning"
+               ? `- Pembagian kelompok
+- Peran anggota
+- Penilaian individu & kelompok
+- Struktur Kelompok
+- Peran Peserta Didik`
+               : data.model === "Blended Learning"
+                 ? `- Aktivitas luring & daring
+- Platform digital
+- Sinkron & asinkron
+- Aktivitas Daring
+- Aktivitas Luring`
+                 : data.model === "Discovery Learning"
+                   ? `- Stimulasi
+- Identifikasi masalah
+- Pengumpulan data
+- Verifikasi
+- Generalisasi
+- Tahapan Discovery`
+                   : data.model === "Inquiry Learning"
+                     ? `- Perumusan masalah
+- Hipotesis
+- Eksperimen
+- Kesimpulan
+- Pertanyaan Inkuiri
+- Proses Penyelidikan`
+                     : data.model === "Contextual Teaching and Learning (CTL)"
+                       ? `- Keterkaitan dunia nyata
+- Refleksi pengalaman
+- Learning community
+- Konteks Nyata
+- Refleksi Kontekstual`
+                       : data.model === "Differentiated Learning"
+                         ? `- Pemetaan kebutuhan murid
+- Diferensiasi konten, proses, produk
+- Strategi Diferensiasi
+- Penyesuaian Asesmen`
+                         : ""
+       }
     `;
 
     console.log(
@@ -148,10 +215,12 @@ export async function POST(req: Request) {
       data: moduleText,
       metadata: {
         processing_time: `${processingTime.toFixed(2)} detik`,
-        model_used: "llama-3.3-70b-versatile", // Update model yang digunakan
+        model_used: "llama-3.3-70b-versatile",
         created_at: new Date().toISOString(),
-        format: "markdown_with_tables",
+        format: "structured_text",
         curriculum: data.kurikulum,
+        meetings: pertemuanNum,
+        total_duration: `${pertemuanNum} pertemuan (total ${totalWaktu} menit)`,
       },
     });
   } catch (error: unknown) {
@@ -166,6 +235,11 @@ export async function POST(req: Request) {
       if (error.message.includes("Timeout")) {
         errorMessage = "Proses pembuatan modul terlalu lama";
         suggestion = "Silakan coba lagi dengan materi yang lebih spesifik";
+      }
+
+      if (error.message.includes("Invalid API Key")) {
+        errorMessage = "Kunci API tidak valid. Silakan hubungi administrator.";
+        suggestion = "Periksa konfigurasi kunci API Groq.";
       }
     }
 
@@ -185,6 +259,6 @@ export async function GET() {
     status: "ok",
     message: "Modul Generator API is running",
     timestamp: new Date().toISOString(),
-    format: "markdown_with_tables",
+    format: "structured_text",
   });
 }

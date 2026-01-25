@@ -4,27 +4,31 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [moduleText, setModuleText] = useState("");
+  const [currentStep, setCurrentStep] = useState(1); // 1, 2, or 3
 
   const [form, setForm] = useState({
-    judul: "", // New field for title
-    kurikulum: "Kurikulum Merdeka", // Changed to include K13 option
+    // Step 1: Informasi Dasar
     namaGuru: "",
     institusi: "",
+
+    // Step 1: Informasi Akademik
+    kurikulum: "Kurikulum Merdeka", // Changed to include Kurikulum Berbasis Cinta
     jenjang: "SMP",
+    mapel: "",
+    tahunAjaran: "2025/2026",
     fase: "Fase D",
     kelas: "",
-    mapel: "",
+    semester: "Ganjil",
+
+    // Step 2: Detail Inti Pembelajaran
     materi: "",
-    tahunPelajaran: "2025/2026", // New field
-    semester: "Ganjil", // New field
-    durasi: "2",
+    jumlahPertemuan: "2",
+    alokasiWaktu: "90",
     model: "Problem Based Learning",
     skl: [] as string[],
   });
@@ -47,14 +51,26 @@ export default function Home() {
     }));
   }
 
-  function validateForm(): string | null {
-    if (!form.judul.trim()) return "Judul Modul wajib diisi";
+  function validateStep1(): string | null {
     if (!form.namaGuru.trim()) return "Nama Guru wajib diisi";
     if (!form.institusi.trim()) return "Nama Institusi wajib diisi";
-    if (!form.kelas.trim()) return "Kelas wajib diisi";
     if (!form.mapel.trim()) return "Mata pelajaran wajib diisi";
+    if (!form.kelas.trim()) return "Kelas wajib diisi";
+    return null;
+  }
+
+  function validateStep2(): string | null {
     if (!form.materi.trim()) return "Materi pokok wajib diisi";
     if (form.skl.length < 2) return "Pilih minimal 2 Profil Pelajar Pancasila";
+
+    // Validate realistic duration for SMK with PjBL
+    if (form.jenjang === "SMK" && form.model.includes("Project")) {
+      const pertemuanNum = parseInt(form.jumlahPertemuan) || 2;
+      if (pertemuanNum < 4) {
+        return "Untuk SMK dengan Project Based Learning, minimal 4 pertemuan diperlukan";
+      }
+    }
+
     return null;
   }
 
@@ -63,13 +79,14 @@ export default function Home() {
     setError("");
     setModuleText("");
 
-    const validationError = validateForm();
+    const validationError = validateStep2();
     if (validationError) {
       setError(validationError);
       return;
     }
 
     setLoading(true);
+    setCurrentStep(3); // Move to step 3 (loading/result)
 
     try {
       console.log("📤 Mengirim request ke API dengan data:", form);
@@ -97,6 +114,7 @@ export default function Home() {
     } catch (err: any) {
       console.error("❌ Error di handleSubmit:", err);
       setError(err.message || "Terjadi kesalahan");
+      setCurrentStep(2); // Go back to step 2 on error
     } finally {
       setLoading(false);
     }
@@ -105,11 +123,74 @@ export default function Home() {
   const exportToDocx = () => {
     if (!moduleText) return;
 
-    const content = `${moduleText}`;
+    // Create a properly formatted HTML content
+    const htmlContent = `
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Modul Ajar ${form.mapel}</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+            h1, h2, h3 { color: #333; }
+            h1 { text-align: center; margin-bottom: 5px; }
+            h1 + p { text-align: center; font-style: italic; margin-bottom: 20px; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #3b82f6; color: white; }
+            .section-title { font-weight: bold; margin-top: 20px; margin-bottom: 10px; }
+            .subsection-title { font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
+            ul, ol { margin-left: 20px; margin-bottom: 10px; }
+            .lkpd-section { margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #3b82f6; }
+          </style>
+        </head>
+        <body>
+          ${moduleText
+            .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+            .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+            .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+            .replace(/^\*\*(.+)\*\*$/gm, "<strong>$1</strong>")
+            .replace(/^\*(.+)\*$/gm, "<em>$1</em>")
+            .replace(/^- (.+)$/gm, "<li>$1</li>")
+            .replace(/^(\d+)\. (.+)$/gm, "<li>$2</li>")
+            .replace(/^<li>/gm, "<ul><li>")
+            .replace(/<\/li>$/gm, "</li></ul>")
+            .replace(/<\/li><ul><li>/g, "</li><li>")
+            .replace(/<\/ul><\/li>/g, "</li></ul>")
+            .replace(/\n\n/g, "</p><p>")
+            .replace(/^/, "<p>")
+            .replace(/$/, "</p>")
+            .replace(/<p><h/g, "<h")
+            .replace(/<\/h([1-6])><\/p>/g, "</h$1>")
+            .replace(/<p><ul>/g, "<ul>")
+            .replace(/<\/ul><\/p>/g, "</ul>")
+            .replace(/<p><table>/g, "<table>")
+            .replace(/<\/table><\/p>/g, "</table>")
+            .replace(/\| (.+) \|/g, (match, content) => {
+              const cells = content.split(" | ");
+              return (
+                "<tr>" +
+                cells.map((cell: string) => `<td>${cell}</td>`).join("") +
+                "</tr>"
+              );
+            })
+            .replace(/<tr>/g, "<table><tr>")
+            .replace(/<\/tr>/g, "</tr></table>")
+            .replace(/<\/table><table>/g, "")
+            // Special handling for LKPD section
+            .replace(
+              /F\. Lembar Kerja Peserta Didik \(LKPD\)([\s\S]*?)G\./g,
+              '<div class="lkpd-section"><h2>F. Lembar Kerja Peserta Didik (LKPD)</h2>$1</div><h2>G.',
+            )}
+        </body>
+      </html>
+    `;
 
-    const blob = new Blob([content], {
+    // Create a blob with the HTML content
+    const blob = new Blob([htmlContent], {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
+
+    // Create a download link
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -120,74 +201,26 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  const exportToMarkdown = () => {
-    if (!moduleText) return;
-
-    const blob = new Blob([moduleText], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Modul_Ajar_${form.mapel}_${form.kelas}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const exportToPDF = async () => {
-    if (!moduleText) return;
-
-    try {
-      // Create a temporary div to render the markdown
-      const tempDiv = document.createElement("div");
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.width = "210mm"; // A4 width
-      tempDiv.style.padding = "20mm";
-      tempDiv.style.backgroundColor = "white";
-      tempDiv.style.fontFamily = "Arial, sans-serif";
-      tempDiv.style.fontSize = "12px";
-      tempDiv.innerHTML = `
-        <div style="margin-bottom: 20px;">${moduleText.replace(/\n/g, "<br>")}</div>
-      `;
-      document.body.appendChild(tempDiv);
-
-      // Convert to canvas and then to PDF
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-      });
-
-      // Clean up
-      document.body.removeChild(tempDiv);
-
-      // Create PDF
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(
-        `Modul_Ajar_${form.mapel}_${form.kelas}_${new Date().toISOString().split("T")[0]}.pdf`,
-      );
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Gagal membuat PDF. Silakan coba lagi.");
-    }
+  const resetForm = () => {
+    setCurrentStep(1);
+    setModuleText("");
+    setError("");
+    setForm({
+      namaGuru: "",
+      institusi: "",
+      kurikulum: "Kurikulum Merdeka",
+      jenjang: "SMP",
+      mapel: "",
+      tahunAjaran: "2025/2026",
+      fase: "Fase D",
+      kelas: "",
+      semester: "Ganjil",
+      materi: "",
+      jumlahPertemuan: "2",
+      alokasiWaktu: "90",
+      model: "Problem Based Learning",
+      skl: [],
+    });
   };
 
   const inputClass =
@@ -195,11 +228,11 @@ export default function Home() {
   const labelClass = "text-sm font-medium text-gray-700";
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white text-black">
+    <main className="min-h-screen bg-linear-to-brom-gray-50 to-white text-black">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* HEADER WITH CARD */}
         <header className="mb-8">
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
+          <div className="bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
             {/* Decorative Elements */}
             <div className="absolute top-0 left-0 w-full h-full opacity-10">
               <div className="absolute top-4 left-4 w-20 h-20 bg-white rounded-full"></div>
@@ -222,7 +255,8 @@ export default function Home() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Sesuai Permendikdasmen No. 13 Tahun 2025
+                Sesuai dengan Peraturan Kurikulum Merdeka & Kurikulum Berbasis
+                Cinta
               </div>
 
               <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight">
@@ -243,7 +277,7 @@ export default function Home() {
                   >
                     <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                   </svg>
-                  <span>Modul Lengkap</span>
+                  <span>Struktur Lengkap</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm opacity-75">
                   <svg
@@ -257,7 +291,7 @@ export default function Home() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span>Mudah & Cepat</span>
+                  <span>Waktu Realistis</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm opacity-75">
                   <svg
@@ -278,281 +312,455 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* FORM INPUT */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${currentStep >= 1 ? "bg-blue-600" : "bg-gray-300"}`}
+              >
+                1
+              </div>
+              <span
+                className={`ml-2 font-medium ${currentStep >= 1 ? "text-blue-600" : "text-gray-500"}`}
+              >
+                Informasi Dasar
+              </span>
+            </div>
+            <div className="flex-1 h-1 bg-gray-200 mx-4">
+              <div
+                className={`h-full ${currentStep >= 2 ? "bg-blue-600" : ""}`}
+                style={{ width: currentStep >= 2 ? "100%" : "0%" }}
+              ></div>
+            </div>
+            <div className="flex items-center">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${currentStep >= 2 ? "bg-blue-600" : "bg-gray-300"}`}
+              >
+                2
+              </div>
+              <span
+                className={`ml-2 font-medium ${currentStep >= 2 ? "text-blue-600" : "text-gray-500"}`}
+              >
+                Detail Pembelajaran
+              </span>
+            </div>
+            <div className="flex-1 h-1 bg-gray-200 mx-4">
+              <div
+                className={`h-full ${currentStep >= 3 ? "bg-blue-600" : ""}`}
+                style={{ width: currentStep >= 3 ? "100%" : "0%" }}
+              ></div>
+            </div>
+            <div className="flex items-center">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${currentStep >= 3 ? "bg-blue-600" : "bg-gray-300"}`}
+              >
+                3
+              </div>
+              <span
+                className={`ml-2 font-medium ${currentStep >= 3 ? "text-blue-600" : "text-gray-500"}`}
+              >
+                Hasil
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* FORM INPUT - STEP 1 */}
+        {currentStep === 1 && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              Langkah 1: Informasi Dasar
+            </h2>
+
+            <form className="space-y-6">
+              {/* Informasi Pendidik */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
+                  Informasi Pendidik
+                </h3>
+
+                <div>
+                  <label className={labelClass}>Nama Guru*</label>
+                  <input
+                    name="namaGuru"
+                    value={form.namaGuru}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Contoh: Donny Andika, S.Pd."
+                    required
                   />
-                </svg>
-                Input Data Modul
-              </h2>
+                </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Informasi Dasar */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
-                    Informasi Modul
-                  </h3>
+                <div>
+                  <label className={labelClass}>Nama Institusi*</label>
+                  <input
+                    name="institusi"
+                    value={form.institusi}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Contoh: SMKN 1 Nganjuk"
+                    required
+                  />
+                </div>
+              </div>
 
+              {/* Informasi Akademik */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
+                  Informasi Akademik
+                </h3>
+
+                <div>
+                  <label className={labelClass}>Pilih Kurikulum*</label>
+                  <select
+                    name="kurikulum"
+                    value={form.kurikulum}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option>Kurikulum Merdeka</option>
+                    <option>Kurikulum Berbasis Cinta</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Jenjang Pendidikan*</label>
+                  <select
+                    name="jenjang"
+                    value={form.jenjang}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option>TK/SDerajat</option>
+                    <option>SD/MI</option>
+                    <option>SMP/MTs</option>
+                    <option>SMA/MA/Sederajat</option>
+                    <option>SMK/Sederajat</option>
+                    <option>TKLB</option>
+                    <option>SDLB-SMALB</option>
+                    <option>Kesetaraan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Mata Pelajaran*</label>
+                  <input
+                    name="mapel"
+                    value={form.mapel}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Contoh: Bahasa Basis Data"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelClass}>Judul Modul*</label>
+                    <label className={labelClass}>Tahun Ajaran*</label>
                     <input
-                      name="judul"
-                      value={form.judul}
+                      name="tahunAjaran"
+                      value={form.tahunAjaran}
                       onChange={handleChange}
                       className={inputClass}
-                      placeholder="Contoh: Persamaan Linear Satu Variabel"
+                      placeholder="2025/2026"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className={labelClass}>Kurikulum*</label>
+                    <label className={labelClass}>Semester*</label>
                     <select
-                      name="kurikulum"
-                      value={form.kurikulum}
+                      name="semester"
+                      value={form.semester}
                       onChange={handleChange}
                       className={inputClass}
                     >
-                      <option>Kurikulum Merdeka</option>
-                      <option>Kurikulum 2013 (K13)</option>
+                      <option>Ganjil</option>
+                      <option>Genap</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Fase*</label>
+                  <select
+                    name="fase"
+                    value={form.fase}
+                    onChange={handleChange}
+                    className={inputClass}
+                    disabled={form.kurikulum === "Kurikulum Berbasis Cinta"}
+                  >
+                    <option>Fase A (SD kelas 1–2)</option>
+                    <option>Fase B (SD kelas 3–4)</option>
+                    <option>Fase C (SD kelas 5–6)</option>
+                    <option>Fase D (SMP kelas 7–9)</option>
+                    <option>Fase E (SMA/SMK kelas 10)</option>
+                    <option>Fase F (SMA/SMK kelas 11–12)</option>
+                  </select>
+                  {form.kurikulum === "Kurikulum Berbasis Cinta" && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Fase tidak digunakan untuk Kurikulum Berbasis Cinta
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={labelClass}>Kelas*</label>
+                  <input
+                    name="kelas"
+                    value={form.kelas}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Contoh: XI atau 11"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-red-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+
+              {/* Next Button */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const validationError = validateStep1();
+                    if (validationError) {
+                      setError(validationError);
+                      return;
+                    }
+                    setError("");
+                    setCurrentStep(2);
+                  }}
+                  className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  Selanjutnya
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* FORM INPUT - STEP 2 */}
+        {currentStep === 2 && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              Langkah 2: Detail Inti Pembelajaran
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Detail Pembelajaran */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
+                  Detail Pembelajaran
+                </h3>
+
+                <div>
+                  <label className={labelClass}>
+                    Materi Pokok/Judul Modul*
+                  </label>
+                  <input
+                    name="materi"
+                    value={form.materi}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Contoh: Pengenalan dasar-dasar basis data"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Jumlah Pertemuan*</label>
+                    <select
+                      name="jumlahPertemuan"
+                      value={form.jumlahPertemuan}
+                      onChange={handleChange}
+                      className={inputClass}
+                    >
+                      <option value="1">1 Pertemuan</option>
+                      <option value="2">2 Pertemuan</option>
+                      <option value="3">3 Pertemuan</option>
+                      <option value="4">4 Pertemuan</option>
+                      <option value="5">5 Pertemuan</option>
+                      <option value="6">6 Pertemuan</option>
+                      <option value="7">7 Pertemuan</option>
+                      <option value="8">8 Pertemuan</option>
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Tahun Pelajaran*</label>
-                      <input
-                        name="tahunPelajaran"
-                        value={form.tahunPelajaran}
-                        onChange={handleChange}
-                        className={inputClass}
-                        placeholder="2025/2026"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Semester*</label>
-                      <select
-                        name="semester"
-                        value={form.semester}
-                        onChange={handleChange}
-                        className={inputClass}
-                      >
-                        <option>Ganjil</option>
-                        <option>Genap</option>
-                      </select>
-                    </div>
-                  </div>
-
                   <div>
-                    <label className={labelClass}>Nama Guru*</label>
+                    <label className={labelClass}>
+                      Alokasi Waktu Per Pertemuan (menit)*
+                    </label>
                     <input
-                      name="namaGuru"
-                      value={form.namaGuru}
+                      name="alokasiWaktu"
+                      type="number"
+                      min="30"
+                      max="240"
+                      step="30"
+                      value={form.alokasiWaktu}
                       onChange={handleChange}
                       className={inputClass}
-                      placeholder="Budi Santoso, M.Pd."
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Satuan Pendidikan*</label>
-                    <input
-                      name="institusi"
-                      value={form.institusi}
-                      onChange={handleChange}
-                      className={inputClass}
-                      placeholder="SMP Negeri 1 Jakarta"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Mata Pelajaran*</label>
-                    <input
-                      name="mapel"
-                      value={form.mapel}
-                      onChange={handleChange}
-                      className={inputClass}
-                      placeholder="Matematika"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Kelas*</label>
-                    <input
-                      name="kelas"
-                      value={form.kelas}
-                      onChange={handleChange}
-                      className={inputClass}
-                      placeholder="VII A"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Materi Pokok*</label>
-                    <textarea
-                      name="materi"
-                      value={form.materi}
-                      onChange={handleChange}
-                      className={`${inputClass} min-h-[80px]`}
-                      placeholder="Persamaan Linear Satu Variabel"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Pengaturan Pembelajaran */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
-                    Pengaturan Pembelajaran
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Jenjang</label>
-                      <select
-                        name="jenjang"
-                        value={form.jenjang}
-                        onChange={handleChange}
-                        className={inputClass}
-                      >
-                        <option>SD</option>
-                        <option>SMP</option>
-                        <option>SMA</option>
-                        <option>SMK</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Fase</label>
-                      <select
-                        name="fase"
-                        value={form.fase}
-                        onChange={handleChange}
-                        className={inputClass}
-                      >
-                        <option>Fase A</option>
-                        <option>Fase B</option>
-                        <option>Fase C</option>
-                        <option>Fase D</option>
-                        <option>Fase E</option>
-                        <option>Fase F</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Durasi (JP)*</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          name="durasi"
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={form.durasi}
-                          onChange={handleChange}
-                          className={inputClass}
-                          required
-                        />
-                        <span className="text-sm text-gray-600 whitespace-nowrap">
-                          = {(parseInt(form.durasi) || 2) * 45} menit
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Model Pembelajaran</label>
-                      <select
-                        name="model"
-                        value={form.model}
-                        onChange={handleChange}
-                        className={inputClass}
-                      >
-                        <option>Problem Based Learning</option>
-                        <option>Project Based Learning</option>
-                        <option>Discovery Learning</option>
-                        <option>Inquiry Learning</option>
-                        <option>Cooperative Learning</option>
-                      </select>
-                    </div>
-                  </div>
+                <div>
+                  <label className={labelClass}>Model Pembelajaran*</label>
+                  <select
+                    name="model"
+                    value={form.model}
+                    onChange={handleChange}
+                    className={inputClass}
+                  >
+                    <option>Problem Based Learning</option>
+                    <option>Project Based Learning</option>
+                    <option>Cooperative Learning</option>
+                    <option>Discovery Learning</option>
+                    <option>Inquiry Learning</option>
+                    <option>Differentiated Learning</option>
+                    <option>Contextual Teaching and Learning (CTL)</option>
+                    <option>Blended Learning</option>
+                  </select>
                 </div>
+              </div>
 
-                {/* Profil Pelajar Pancasila */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
-                    Profil Pelajar Pancasila*
-                    <span className="ml-2 text-xs font-normal text-gray-500">
-                      (minimal 2)
-                    </span>
-                  </h3>
-                  <div className="space-y-2">
-                    {[
-                      "Beriman, bertakwa, dan berakhlak mulia",
-                      "Berkebinekaan global",
-                      "Bergotong royong",
-                      "Mandiri",
-                      "Bernalar kritis",
-                      "Kreatif",
-                    ].map((item) => (
-                      <label
-                        key={item}
-                        className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.skl.includes(item)}
-                          onChange={() => handleCheckbox(item)}
-                          className="accent-blue-600"
-                        />
-                        <span className="text-sm">{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-red-600"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
+              {/* Profil Pelajar Pancasila */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-blue-600 text-sm uppercase tracking-wide">
+                  Dimensi Profil Lulusan*
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    (minimal 2)
+                  </span>
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    "Beriman, bertakwa, dan berakhlak mulia",
+                    "Berkebinekaan global",
+                    "Bergotong royong",
+                    "Mandiri",
+                    "Bernalar kritis",
+                    "Kreatif",
+                  ].map((item) => (
+                    <label
+                      key={item}
+                      className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
+                      <input
+                        type="checkbox"
+                        checked={form.skl.includes(item)}
+                        onChange={() => handleCheckbox(item)}
+                        className="accent-blue-600"
                       />
-                    </svg>
-                    <p className="text-red-700 text-sm">{error}</p>
-                  </div>
-                )}
+                      <span className="text-sm">{item}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-                {/* Submit Button */}
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-red-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex justify-between">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center gap-2"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M11 17l-5-5m0 0l5-5m-5 5h12"
+                    />
+                  </svg>
+                  Kembali
+                </button>
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                  className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -593,27 +801,67 @@ export default function Home() {
                           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <span>Generate Modul Ajar</span>
+                      <span>Buat Modul Ajar</span>
                     </>
                   )}
                 </button>
-              </form>
-            </div>
+              </div>
+            </form>
           </div>
+        )}
 
-          {/* OUTPUT PREVIEW */}
-          <div className="lg:col-span-2">
-            {moduleText ? (
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        {/* STEP 3: LOADING AND RESULT */}
+        {currentStep === 3 && (
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-blue-50 flex items-center justify-center">
+                  <svg
+                    className="animate-spin h-10 w-10 text-blue-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">
+                  Sedang Membuat Modul Ajar
+                </h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                  Mohon tunggu sebentar, sistem sedang membuat modul ajar yang
+                  sesuai dengan input Anda.
+                </p>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 max-w-md mx-auto">
+                  <div
+                    className="bg-blue-600 h-2.5 rounded-full animate-pulse"
+                    style={{ width: "70%" }}
+                  ></div>
+                </div>
+              </div>
+            ) : moduleText ? (
+              <>
                 {/* Header Output */}
-                <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="border-b border-gray-200 px-6 py-4 bg-linear-to-r from-blue-50 to-indigo-50">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <h2 className="text-xl font-bold text-gray-800">
                         Modul Ajar Hasil Generate
                       </h2>
                       <p className="text-gray-600 text-sm mt-1">
-                        Format: Markdown dengan Tabel • Siap Unduh
+                        Format: Tabel • Struktur Lengkap • Siap Unduh
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -635,44 +883,6 @@ export default function Home() {
                           />
                         </svg>
                         Unduh .DOCX
-                      </button>
-                      <button
-                        onClick={exportToPDF}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-sm"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                          />
-                        </svg>
-                        Unduh .PDF
-                      </button>
-                      <button
-                        onClick={exportToMarkdown}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                          />
-                        </svg>
-                        Unduh .MD
                       </button>
                       <button
                         onClick={() => {
@@ -716,7 +926,7 @@ export default function Home() {
                         ),
                         th: ({ node, ...props }) => (
                           <th
-                            className="border border-gray-300 bg-gray-100 px-4 py-2 text-left font-semibold"
+                            className="border border-gray-300 bg-blue-500 text-white px-4 py-2 text-left font-semibold"
                             {...props}
                           />
                         ),
@@ -726,28 +936,130 @@ export default function Home() {
                             {...props}
                           />
                         ),
+                        h1: ({ children, ...props }) => (
+                          <h1
+                            className="text-2xl font-bold text-center mb-4"
+                            {...props}
+                          >
+                            {children}
+                          </h1>
+                        ),
+                        h2: ({ children, ...props }) => (
+                          <h2
+                            className="text-xl font-bold mt-6 mb-3"
+                            {...props}
+                          >
+                            {children}
+                          </h2>
+                        ),
+                        h3: ({ children, ...props }) => (
+                          <h3
+                            className="text-lg font-semibold mt-4 mb-2"
+                            {...props}
+                          >
+                            {children}
+                          </h3>
+                        ),
+                        p: ({ children, ...props }) => {
+                          // Check if this is part of LKPD section
+                          const textContent = String(children).toLowerCase();
+                          if (
+                            textContent.includes("lembar kerja") ||
+                            textContent.includes("lkpd") ||
+                            textContent.includes("petunjuk belajar") ||
+                            textContent.includes("tujuan pembelajaran") ||
+                            textContent.includes("materi singkat") ||
+                            textContent.includes("aktivitas") ||
+                            textContent.includes("langkah kerja") ||
+                            textContent.includes("tugas") ||
+                            textContent.includes("komponen penilaian")
+                          ) {
+                            return (
+                              <p className="mb-3 text-gray-800" {...props}>
+                                {children}
+                              </p>
+                            );
+                          }
+                          return (
+                            <p className="mb-3" {...props}>
+                              {children}
+                            </p>
+                          );
+                        },
+                        ul: ({ children, ...props }) => {
+                          const textContent = String(children).toLowerCase();
+                          if (
+                            textContent.includes("petunjuk") ||
+                            textContent.includes("langkah") ||
+                            textContent.includes("tugas")
+                          ) {
+                            return (
+                              <ul
+                                className="list-disc pl-6 mb-3 text-gray-800"
+                                {...props}
+                              >
+                                {children}
+                              </ul>
+                            );
+                          }
+                          return (
+                            <ul className="list-disc pl-6 mb-3" {...props}>
+                              {children}
+                            </ul>
+                          );
+                        },
+                        ol: ({ children, ...props }) => (
+                          <ol className="list-decimal pl-6 mb-3" {...props}>
+                            {children}
+                          </ol>
+                        ),
+                        li: ({ children, ...props }) => (
+                          <li className="mb-1" {...props}>
+                            {children}
+                          </li>
+                        ),
+                        strong: ({ children, ...props }) => (
+                          <strong className="font-semibold" {...props}>
+                            {children}
+                          </strong>
+                        ),
                       }}
                     >
                       {moduleText}
                     </ReactMarkdown>
                   </div>
-
-                  {/* Raw Text (optional) */}
-                  <details className="mt-6 border border-gray-200 rounded-lg">
-                    <summary className="px-4 py-3 bg-gray-50 cursor-pointer font-medium text-gray-700">
-                      Lihat Teks Mentah
-                    </summary>
-                    <pre className="p-4 bg-white text-sm overflow-auto max-h-96">
-                      {moduleText}
-                    </pre>
-                  </details>
                 </div>
-              </div>
+
+                {/* Create New Button */}
+                <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+                  <div className="flex justify-center">
+                    <button
+                      onClick={resetForm}
+                      className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      Buat Modul Baru
+                    </button>
+                  </div>
+                </div>
+              </>
             ) : (
-              <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-blue-50 flex items-center justify-center">
+              <div className="p-12 text-center">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
                   <svg
-                    className="w-10 h-10 text-blue-600"
+                    className="w-10 h-10 text-red-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -756,44 +1068,35 @@ export default function Home() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-3">
-                  Belum Ada Modul
+                  Gagal Membuat Modul
                 </h3>
                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Isi formulir di samping dengan data pembelajaran Anda, lalu
-                  klik "Generate Modul Ajar" untuk membuat modul dalam format
-                  teks lengkap dengan tabel.
+                  {error ||
+                    "Terjadi kesalahan saat membuat modul. Silakan coba lagi."}
                 </p>
-                <div className="inline-flex flex-col items-center gap-2 bg-gray-50 px-6 py-4 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <svg
-                      className="w-4 h-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-sm font-medium">Fitur Output:</span>
-                  </div>
-                  <ul className="text-sm text-gray-600 text-left space-y-1">
-                    <li>✓ Format teks lengkap dengan tabel markdown</li>
-                    <li>✓ Struktur lengkap sesuai Kurikulum</li>
-                    <li>✓ Download sebagai DOCX, PDF, atau Markdown</li>
-                    <li>✓ Preview langsung di browser</li>
-                  </ul>
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={() => setCurrentStep(2)}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-all duration-300"
+                  >
+                    Kembali
+                  </button>
+                  <button
+                    onClick={resetForm}
+                    className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    Mulai Ulang
+                  </button>
                 </div>
               </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* FOOTER */}
         <footer className="mt-12 pt-8 border-t border-gray-200 text-center text-gray-500 text-sm">
@@ -801,9 +1104,9 @@ export default function Home() {
             Generator Modul Ajar (RPM) • Kurikulum Berbasis Cinta (KBC)
           </p>
           <p className="flex items-center justify-center gap-2">
-            Dirancang oleh andi pratama
+            Disusun oleh Donny Andika Kurniawan
             <a
-              href="https://instagram.com/andipratama"
+              href="https://instagram.com/donny.ax"
               target="_blank"
               rel="noopener noreferrer"
               className="text-pink-600 hover:text-pink-700 transition-colors"
