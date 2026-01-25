@@ -177,10 +177,9 @@ export default function Home() {
             .replace(/<\/tr>/g, "</tr></table>")
             .replace(/<\/table><table>/g, "")
             // Special handling for LKPD section
-            .replace(
-              /F\. Lembar Kerja Peserta Didik \(LKPD\)([\s\S]*?)G\./g,
-              '<div class="lkpd-section"><h2>F. Lembar Kerja Peserta Didik (LKPD)</h2>$1</div><h2>G.',
-            )}
+            .replace(/F\. Lembar Kerja Peserta Didik \(LKPD\)([\s\S]*?)G\./g, 
+              '<div class="lkpd-section"><h2>F. Lembar Kerja Peserta Didik (LKPD)</h2>$1</div><h2>G.')
+            }
         </body>
       </html>
     `;
@@ -228,11 +227,11 @@ export default function Home() {
   const labelClass = "text-sm font-medium text-gray-700";
 
   return (
-    <main className="min-h-screen bg-linear-to-brom-gray-50 to-white text-black">
+    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white text-black">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* HEADER WITH CARD */}
         <header className="mb-8">
-          <div className="bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden">
             {/* Decorative Elements */}
             <div className="absolute top-0 left-0 w-full h-full opacity-10">
               <div className="absolute top-4 left-4 w-20 h-20 bg-white rounded-full"></div>
@@ -562,7 +561,7 @@ export default function Home() {
                     setError("");
                     setCurrentStep(2);
                   }}
-                  className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   Selanjutnya
                   <svg
@@ -760,7 +759,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -854,7 +853,7 @@ export default function Home() {
             ) : moduleText ? (
               <>
                 {/* Header Output */}
-                <div className="border-b border-gray-200 px-6 py-4 bg-linear-to-r from-blue-50 to-indigo-50">
+                <div className="border-b border-gray-200 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <h2 className="text-xl font-bold text-gray-800">
@@ -937,43 +936,32 @@ export default function Home() {
                           />
                         ),
                         h1: ({ children, ...props }) => (
-                          <h1
-                            className="text-2xl font-bold text-center mb-4"
-                            {...props}
-                          >
+                          <h1 className="text-2xl font-bold text-center mb-4" {...props}>
                             {children}
                           </h1>
                         ),
                         h2: ({ children, ...props }) => (
-                          <h2
-                            className="text-xl font-bold mt-6 mb-3"
-                            {...props}
-                          >
+                          <h2 className="text-xl font-bold mt-6 mb-3" {...props}>
                             {children}
                           </h2>
                         ),
                         h3: ({ children, ...props }) => (
-                          <h3
-                            className="text-lg font-semibold mt-4 mb-2"
-                            {...props}
-                          >
+                          <h3 className="text-lg font-semibold mt-4 mb-2" {...props}>
                             {children}
                           </h3>
                         ),
                         p: ({ children, ...props }) => {
                           // Check if this is part of LKPD section
                           const textContent = String(children).toLowerCase();
-                          if (
-                            textContent.includes("lembar kerja") ||
-                            textContent.includes("lkpd") ||
-                            textContent.includes("petunjuk belajar") ||
-                            textContent.includes("tujuan pembelajaran") ||
-                            textContent.includes("materi singkat") ||
-                            textContent.includes("aktivitas") ||
-                            textContent.includes("langkah kerja") ||
-                            textContent.includes("tugas") ||
-                            textContent.includes("komponen penilaian")
-                          ) {
+                          if (textContent.includes('lembar kerja') || 
+                              textContent.includes('lkpd') ||
+                              textContent.includes('petunjuk belajar') ||
+                              textContent.includes('tujuan pembelajaran') ||
+                              textContent.includes('materi singkat') ||
+                              textContent.includes('aktivitas') ||
+                              textContent.includes('langkah kerja') ||
+                              textContent.includes('tugas') ||
+                              textContent.includes('komponen penilaian')) {
                             return (
                               <p className="mb-3 text-gray-800" {...props}>
                                 {children}
@@ -988,16 +976,11 @@ export default function Home() {
                         },
                         ul: ({ children, ...props }) => {
                           const textContent = String(children).toLowerCase();
-                          if (
-                            textContent.includes("petunjuk") ||
-                            textContent.includes("langkah") ||
-                            textContent.includes("tugas")
-                          ) {
+                          if (textContent.includes('petunjuk') || 
+                              textContent.includes('langkah') ||
+                              textContent.includes('tugas')) {
                             return (
-                              <ul
-                                className="list-disc pl-6 mb-3 text-gray-800"
-                                {...props}
-                              >
+                              <ul className="list-disc pl-6 mb-3 text-gray-800" {...props}>
                                 {children}
                               </ul>
                             );
@@ -1035,7 +1018,7 @@ export default function Home() {
                   <div className="flex justify-center">
                     <button
                       onClick={resetForm}
-                      className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                      className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
                     >
                       <svg
                         className="w-5 h-5"
@@ -1088,7 +1071,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={resetForm}
-                    className="bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg"
                   >
                     Mulai Ulang
                   </button>
