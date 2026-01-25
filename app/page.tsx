@@ -123,28 +123,108 @@ export default function Home() {
   const exportToDocx = () => {
     if (!moduleText) return;
 
-    // Create a properly formatted HTML content
+    // Create a properly formatted HTML content with A4 paper size
     const htmlContent = `
-      <html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
         <head>
           <meta charset="utf-8">
           <title>Modul Ajar ${form.mapel}</title>
+          <!--[if gte mso 9]>
+          <xml>
+            <w:WordDocument>
+              <w:View>Print</w:View>
+              <w:Zoom>90</w:Zoom>
+              <w:DoNotOptimizeForBrowser/>
+            </w:WordDocument>
+          </xml>
+          <![endif]-->
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
-            h1, h2, h3 { color: #333; }
-            h1 { text-align: center; margin-bottom: 5px; }
-            h1 + p { text-align: center; font-style: italic; margin-bottom: 20px; }
-            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #3b82f6; color: white; }
-            .section-title { font-weight: bold; margin-top: 20px; margin-bottom: 10px; }
-            .subsection-title { font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
-            ul, ol { margin-left: 20px; margin-bottom: 10px; }
-            .lkpd-section { margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #3b82f6; }
+            @page {
+              size: A4;
+              margin: 2.54cm;
+            }
+            body {
+              font-family: 'Times New Roman', serif;
+              font-size: 12pt;
+              line-height: 1.5;
+              margin: 0;
+              padding: 0;
+            }
+            h1, h2, h3, h4, h5, h6 {
+              font-family: 'Times New Roman', serif;
+              font-weight: bold;
+              page-break-after: avoid;
+            }
+            h1 {
+              font-size: 16pt;
+              text-align: center;
+              margin-bottom: 12pt;
+            }
+            h1 + p {
+              text-align: center;
+              font-style: italic;
+              margin-bottom: 20pt;
+            }
+            h2 {
+              font-size: 14pt;
+              margin-top: 18pt;
+              margin-bottom: 12pt;
+            }
+            h3 {
+              font-size: 12pt;
+              margin-top: 15pt;
+              margin-bottom: 10pt;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+              margin-bottom: 12pt;
+              page-break-inside: avoid;
+            }
+            th, td {
+              border: 1pt solid #000000;
+              padding: 4pt;
+              text-align: left;
+              vertical-align: top;
+            }
+            th {
+              background-color: #3b82f6;
+              color: #ffffff;
+              font-weight: bold;
+            }
+            p {
+              margin-bottom: 6pt;
+              text-align: justify;
+            }
+            ul, ol {
+              margin-bottom: 6pt;
+              padding-left: 18pt;
+            }
+            li {
+              margin-bottom: 3pt;
+            }
+            .section-title {
+              font-weight: bold;
+              margin-top: 12pt;
+              margin-bottom: 6pt;
+            }
+            .lkpd-section {
+              margin: 12pt 0;
+              padding: 12pt;
+              background-color: #f9f9f9;
+              border-left: 4pt solid #3b82f6;
+              page-break-inside: avoid;
+            }
+            .page-break {
+              page-break-before: always;
+            }
           </style>
         </head>
         <body>
           ${moduleText
+            // Format judul yang benar
+            .replace(/^MODUL AJAR (.+)$/gm, "<h1>Modul Ajar</h1><h1>$1</h1>")
+            .replace(/^"(.+)"$/gm, '<p>"$1"</p>')
             .replace(/^### (.+)$/gm, "<h3>$1</h3>")
             .replace(/^## (.+)$/gm, "<h2>$1</h2>")
             .replace(/^# (.+)$/gm, "<h1>$1</h1>")
@@ -177,9 +257,56 @@ export default function Home() {
             .replace(/<\/tr>/g, "</tr></table>")
             .replace(/<\/table><table>/g, "")
             // Special handling for LKPD section
-            .replace(/F\. Lembar Kerja Peserta Didik \(LKPD\)([\s\S]*?)G\./g, 
-              '<div class="lkpd-section"><h2>F. Lembar Kerja Peserta Didik (LKPD)</h2>$1</div><h2>G.')
-            }
+            .replace(
+              /F\. Lembar Kerja Peserta Didik \(LKPD\)([\s\S]*?)G\./g,
+              '<div class="lkpd-section"><h2>F. Lembar Kerja Peserta Didik (LKPD)</h2>$1</div><h2>G.',
+            )
+            // Add page breaks before major sections
+            .replace(
+              /A\. Informasi Umum/g,
+              '<div class="page-break"></div>A. Informasi Umum',
+            )
+            .replace(
+              /B\. Capaian Pembelajaran/g,
+              '<div class="page-break"></div>B. Capaian Pembelajaran',
+            )
+            .replace(
+              /C\. Profil Pelajar Pancasila/g,
+              '<div class="page-break"></div>C. Profil Pelajar Pancasila',
+            )
+            .replace(
+              /D\. Materi Pembelajaran/g,
+              '<div class="page-break"></div>D. Materi Pembelajaran',
+            )
+            .replace(
+              /E\. Rencana Pembelajaran/g,
+              '<div class="page-break"></div>E. Rencana Pembelajaran',
+            )
+            .replace(
+              /F\. Lembar Kerja Peserta Didik/g,
+              '<div class="page-break"></div>F. Lembar Kerja Peserta Didik',
+            )
+            .replace(
+              /G\. Asesmen Pembelajaran/g,
+              '<div class="page-break"></div>G. Asesmen Pembelajaran',
+            )
+            .replace(
+              /H\. Media dan Sumber Belajar/g,
+              '<div class="page-break"></div>H. Media dan Sumber Belajar',
+            )
+            .replace(
+              /I\. Diferensiasi Pembelajaran/g,
+              '<div class="page-break"></div>I. Diferensiasi Pembelajaran',
+            )
+            .replace(
+              /J\. Refleksi Pembelajaran/g,
+              '<div class="page-break"></div>J. Refleksi Pembelajaran',
+            )
+            .replace(
+              /Daftar Pustaka/g,
+              '<div class="page-break"></div>Daftar Pustaka',
+            )
+            .replace(/Glosarium/g, '<div class="page-break"></div>Glosarium')}
         </body>
       </html>
     `;
@@ -193,7 +320,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Modul_Ajar_${form.mapel}_${form.kelas}_${new Date().toISOString().split("T")[0]}.docx`;
+    a.download = `Modul_Ajar_${form.mapel}_${form.kelas}_${new Date().toISOString().split("T")[0]}.doc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -290,7 +417,7 @@ export default function Home() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span>Waktu Realistis</span>
+                  <span>Format A4</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm opacity-75">
                   <svg
@@ -399,7 +526,7 @@ export default function Home() {
                     value={form.namaGuru}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Contoh: Donny Andika, S.Pd."
+                    placeholder="Budi Santoso, S.Pd."
                     required
                   />
                 </div>
@@ -411,7 +538,7 @@ export default function Home() {
                     value={form.institusi}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Contoh: SMKN 1 Nganjuk"
+                    placeholder="SDN 1 Cilodong"
                     required
                   />
                 </div>
@@ -462,7 +589,7 @@ export default function Home() {
                     value={form.mapel}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Contoh: Bahasa Basis Data"
+                    placeholder="Bahasa Indonesia"
                     required
                   />
                 </div>
@@ -503,12 +630,12 @@ export default function Home() {
                     className={inputClass}
                     disabled={form.kurikulum === "Kurikulum Berbasis Cinta"}
                   >
-                    <option>Fase A (SD kelas 1–2)</option>
-                    <option>Fase B (SD kelas 3–4)</option>
-                    <option>Fase C (SD kelas 5–6)</option>
-                    <option>Fase D (SMP kelas 7–9)</option>
-                    <option>Fase E (SMA/SMK kelas 10)</option>
-                    <option>Fase F (SMA/SMK kelas 11–12)</option>
+                    <option>Fase A</option>
+                    <option>Fase B</option>
+                    <option>Fase C</option>
+                    <option>Fase D</option>
+                    <option>Fase E</option>
+                    <option>Fase F</option>
                   </select>
                   {form.kurikulum === "Kurikulum Berbasis Cinta" && (
                     <p className="text-xs text-gray-500 mt-1">
@@ -524,7 +651,7 @@ export default function Home() {
                     value={form.kelas}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Contoh: XI atau 11"
+                    placeholder="1"
                     required
                   />
                 </div>
@@ -619,7 +746,7 @@ export default function Home() {
                     value={form.materi}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Contoh: Pengenalan dasar-dasar basis data"
+                    placeholder="Pengenalan Bunyi dan Kosa Kata"
                     required
                   />
                 </div>
@@ -860,7 +987,7 @@ export default function Home() {
                         Modul Ajar Hasil Generate
                       </h2>
                       <p className="text-gray-600 text-sm mt-1">
-                        Format: Tabel • Struktur Lengkap • Siap Unduh
+                        Format: Tabel • Kertas A4 • Siap Unduh
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -881,7 +1008,7 @@ export default function Home() {
                             d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                           />
                         </svg>
-                        Unduh .DOCX
+                        Unduh .DOC
                       </button>
                       <button
                         onClick={() => {
@@ -909,107 +1036,159 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Content Preview */}
-                <div className="p-6">
-                  <div className="prose prose-blue max-w-none border border-gray-200 rounded-lg p-6 bg-gray-50">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        table: ({ node, ...props }) => (
-                          <div className="overflow-x-auto my-4">
-                            <table
-                              className="min-w-full border border-gray-300"
-                              {...props}
-                            />
-                          </div>
-                        ),
-                        th: ({ node, ...props }) => (
-                          <th
-                            className="border border-gray-300 bg-blue-500 text-white px-4 py-2 text-left font-semibold"
-                            {...props}
-                          />
-                        ),
-                        td: ({ node, ...props }) => (
-                          <td
-                            className="border border-gray-300 px-4 py-2"
-                            {...props}
-                          />
-                        ),
-                        h1: ({ children, ...props }) => (
-                          <h1 className="text-2xl font-bold text-center mb-4" {...props}>
-                            {children}
-                          </h1>
-                        ),
-                        h2: ({ children, ...props }) => (
-                          <h2 className="text-xl font-bold mt-6 mb-3" {...props}>
-                            {children}
-                          </h2>
-                        ),
-                        h3: ({ children, ...props }) => (
-                          <h3 className="text-lg font-semibold mt-4 mb-2" {...props}>
-                            {children}
-                          </h3>
-                        ),
-                        p: ({ children, ...props }) => {
-                          // Check if this is part of LKPD section
-                          const textContent = String(children).toLowerCase();
-                          if (textContent.includes('lembar kerja') || 
-                              textContent.includes('lkpd') ||
-                              textContent.includes('petunjuk belajar') ||
-                              textContent.includes('tujuan pembelajaran') ||
-                              textContent.includes('materi singkat') ||
-                              textContent.includes('aktivitas') ||
-                              textContent.includes('langkah kerja') ||
-                              textContent.includes('tugas') ||
-                              textContent.includes('komponen penilaian')) {
-                            return (
-                              <p className="mb-3 text-gray-800" {...props}>
+                {/* Content Preview - A4 Paper Style */}
+                <div className="p-6 bg-gray-100 overflow-auto">
+                  <div
+                    className="max-w-4xl mx-auto bg-white shadow-lg"
+                    style={{ minHeight: "1122px" }}
+                  >
+                    <div className="p-8" style={{ minHeight: "1122px" }}>
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            table: ({ node, ...props }) => (
+                              <div className="overflow-x-auto my-4">
+                                <table
+                                  className="min-w-full border border-gray-300"
+                                  {...props}
+                                />
+                              </div>
+                            ),
+                            th: ({ node, ...props }) => (
+                              <th
+                                className="border border-gray-300 bg-blue-500 text-white px-4 py-2 text-left font-semibold"
+                                {...props}
+                              />
+                            ),
+                            td: ({ node, ...props }) => (
+                              <td
+                                className="border border-gray-300 px-4 py-2"
+                                {...props}
+                              />
+                            ),
+                            h1: ({ children, ...props }) => {
+                              const text = String(children);
+                              // Check if this is the main title or mapel title
+                              if (text === "Modul Ajar") {
+                                return (
+                                  <h1
+                                    className="text-xl font-bold text-center mb-2"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </h1>
+                                );
+                              } else {
+                                return (
+                                  <h1
+                                    className="text-xl font-bold text-center mb-4"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </h1>
+                                );
+                              }
+                            },
+                            h2: ({ children, ...props }) => (
+                              <h2
+                                className="text-lg font-bold mt-6 mb-3"
+                                {...props}
+                              >
                                 {children}
-                              </p>
-                            );
-                          }
-                          return (
-                            <p className="mb-3" {...props}>
-                              {children}
-                            </p>
-                          );
-                        },
-                        ul: ({ children, ...props }) => {
-                          const textContent = String(children).toLowerCase();
-                          if (textContent.includes('petunjuk') || 
-                              textContent.includes('langkah') ||
-                              textContent.includes('tugas')) {
-                            return (
-                              <ul className="list-disc pl-6 mb-3 text-gray-800" {...props}>
+                              </h2>
+                            ),
+                            h3: ({ children, ...props }) => (
+                              <h3
+                                className="text-base font-semibold mt-4 mb-2"
+                                {...props}
+                              >
                                 {children}
-                              </ul>
-                            );
-                          }
-                          return (
-                            <ul className="list-disc pl-6 mb-3" {...props}>
-                              {children}
-                            </ul>
-                          );
-                        },
-                        ol: ({ children, ...props }) => (
-                          <ol className="list-decimal pl-6 mb-3" {...props}>
-                            {children}
-                          </ol>
-                        ),
-                        li: ({ children, ...props }) => (
-                          <li className="mb-1" {...props}>
-                            {children}
-                          </li>
-                        ),
-                        strong: ({ children, ...props }) => (
-                          <strong className="font-semibold" {...props}>
-                            {children}
-                          </strong>
-                        ),
-                      }}
-                    >
-                      {moduleText}
-                    </ReactMarkdown>
+                              </h3>
+                            ),
+                            p: ({ children, ...props }) => {
+                              // Check if this is a quoted title
+                              const text = String(children);
+                              if (text.startsWith('"') && text.endsWith('"')) {
+                                return (
+                                  <p
+                                    className="text-center italic mb-4"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </p>
+                                );
+                              }
+
+                              // Check if this is part of LKPD section
+                              const textContent = text.toLowerCase();
+                              if (
+                                textContent.includes("lembar kerja") ||
+                                textContent.includes("lkpd") ||
+                                textContent.includes("petunjuk belajar") ||
+                                textContent.includes("tujuan pembelajaran") ||
+                                textContent.includes("materi singkat") ||
+                                textContent.includes("aktivitas") ||
+                                textContent.includes("langkah kerja") ||
+                                textContent.includes("tugas") ||
+                                textContent.includes("komponen penilaian")
+                              ) {
+                                return (
+                                  <p className="mb-3 text-gray-800" {...props}>
+                                    {children}
+                                  </p>
+                                );
+                              }
+                              return (
+                                <p className="mb-3" {...props}>
+                                  {children}
+                                </p>
+                              );
+                            },
+                            ul: ({ children, ...props }) => {
+                              const textContent =
+                                String(children).toLowerCase();
+                              if (
+                                textContent.includes("petunjuk") ||
+                                textContent.includes("langkah") ||
+                                textContent.includes("tugas")
+                              ) {
+                                return (
+                                  <ul
+                                    className="list-disc pl-6 mb-3 text-gray-800"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </ul>
+                                );
+                              }
+                              return (
+                                <ul className="list-disc pl-6 mb-3" {...props}>
+                                  {children}
+                                </ul>
+                              );
+                            },
+                            ol: ({ children, ...props }) => (
+                              <ol className="list-decimal pl-6 mb-3" {...props}>
+                                {children}
+                              </ol>
+                            ),
+                            li: ({ children, ...props }) => (
+                              <li className="mb-1" {...props}>
+                                {children}
+                              </li>
+                            ),
+                            strong: ({ children, ...props }) => (
+                              <strong className="font-semibold" {...props}>
+                                {children}
+                              </strong>
+                            ),
+                          }}
+                        >
+                          {moduleText}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
