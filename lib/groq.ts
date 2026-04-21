@@ -1,6 +1,23 @@
 // lib/groq.ts
 import Groq from "groq-sdk";
 
+export interface TeachingModuleData {
+  judul: string;
+  fase: string;
+  kelas: string;
+  materi: string;
+  mapel: string;
+  jenjang: string;
+  jumlahPertemuan: string;
+  alokasiWaktu: string;
+  model: string;
+  namaGuru: string;
+  institusi: string;
+  tahunAjaran: string;
+  semester: string;
+  skl: string[];
+}
+
 if (!process.env.GROQ_API_KEY) {
   throw new Error("❌ GROQ_API_KEY tidak ditemukan");
 }
@@ -26,7 +43,7 @@ export async function generateTeachingModule(
 
       // Extract fase
       const faseMatch = text.match(/Fase:\s*([^\n]+)/i);
-      let fase = faseMatch ? faseMatch[1].trim() : "Fase D";
+      const fase = faseMatch ? faseMatch[1].trim() : "Fase D";
 
       // Extract kelas
       const kelasMatch = text.match(/Kelas:\s*([^\n]+)/i);
@@ -247,7 +264,7 @@ export async function generateTeachingModule(
     
     ${Array.from({ length: pertemuanNum }, (_, i) => {
       // Distribute TP across meetings
-      let tpFocus: any[] = [];
+      let tpFocus: number[] = [];
       if (i === 0)
         tpFocus = [1, 2]; // First meeting
       else if (i === 1)
@@ -1149,8 +1166,8 @@ export async function generateTeachingModule(
     }
 
     return result;
-  } catch (error: any) {
-    console.error("❌ Error Groq API:", error.message);
+  } catch (error) {
+    console.error("❌ Error Groq API:", error instanceof Error ? error.message : String(error));
 
     // Extract data for fallback
     const extractData = (text: string) => {
@@ -1160,7 +1177,7 @@ export async function generateTeachingModule(
 
       // Extract fase
       const faseMatch = text.match(/Fase:\s*([^\n]+)/i);
-      let fase = faseMatch ? faseMatch[1].trim() : "Fase D";
+      const fase = faseMatch ? faseMatch[1].trim() : "Fase D";
 
       // Extract kelas
       const kelasMatch = text.match(/Kelas:\s*([^\n]+)/i);
@@ -1228,6 +1245,7 @@ export async function generateTeachingModule(
         institusi,
         tahunAjaran,
         semester,
+        skl: [], // Fallback skl
       };
     };
 
@@ -1239,7 +1257,7 @@ export async function generateTeachingModule(
 async function tryAlternativeModel(
   prompt: string,
   kurikulum: string,
-  data: any,
+  data: TeachingModuleData,
 ): Promise<string> {
   console.log("🔄 Mencoba model alternatif: mixtral-8x7b-32768");
 
@@ -1352,8 +1370,8 @@ async function tryAlternativeModel(
     }
 
     return generateFallbackModule(prompt, kurikulum, data);
-  } catch (error: any) {
-    console.error("❌ Model alternatif juga gagal:", error.message);
+  } catch (error) {
+    console.error("❌ Model alternatif juga gagal:", error instanceof Error ? error.message : String(error));
     return generateFallbackModule(prompt, kurikulum, data);
   }
 }
@@ -1361,7 +1379,7 @@ async function tryAlternativeModel(
 function generateFallbackModule(
   prompt: string,
   kurikulum: string,
-  data: any,
+  data: TeachingModuleData,
 ): string {
   console.log("📝 Membuat modul fallback untuk kurikulum:", kurikulum);
 
@@ -1464,10 +1482,10 @@ Materi Prosedural
 
 E. Rencana Pembelajaran per Pertemuan
 
- ${Array.from({ length: pertemuanNum }, (_, i) => {
-   // Distribute TP across meetings
-   let tpFocus: any[] = [];
-   if (i === 0)
+  ${Array.from({ length: pertemuanNum }, (_, i) => {
+    // Distribute TP across meetings
+    let tpFocus: number[] = [];
+    if (i === 0)
      tpFocus = [1, 2]; // First meeting
    else if (i === 1)
      tpFocus = [2, 3]; // Second meeting
